@@ -11,6 +11,8 @@ import android.os.AsyncTask;
 import android.os.Build;
 import android.os.Bundle;
 import android.text.TextUtils;
+import android.util.Base64;
+import android.util.Log;
 import android.view.KeyEvent;
 import android.view.View;
 import android.view.View.OnClickListener;
@@ -19,7 +21,29 @@ import android.widget.Button;
 import android.widget.EditText;
 import android.widget.TextView;
 
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
+import com.google.gson.annotations.Expose;
+import com.google.gson.annotations.SerializedName;
+import com.google.gson.reflect.TypeToken;
 import com.poc.android.bankaccount.R;
+
+import org.apache.http.HttpEntity;
+import org.apache.http.HttpResponse;
+import org.apache.http.StatusLine;
+import org.apache.http.client.HttpClient;
+import org.apache.http.client.methods.HttpPost;
+import org.apache.http.impl.client.DefaultHttpClient;
+import org.apache.http.message.BasicHeader;
+import org.apache.http.params.BasicHttpParams;
+import org.apache.http.params.HttpConnectionParams;
+import org.apache.http.params.HttpParams;
+import org.apache.http.protocol.HTTP;
+
+import java.io.BufferedReader;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.util.Map;
 
 import static com.poc.android.bankaccount.authentication.Authenticator.*;
 
@@ -36,6 +60,7 @@ public class AuthenticateActivity extends AccountAuthenticatorActivity {
     private static final String[] DUMMY_CREDENTIALS = new String[]{
             "foo@example.com:hello", "bar@example.com:world"
     };
+    private static final String TAG = "AuthenticateActivity";
     /**
      * Keep track of the login task to ensure we can cancel it if requested.
      */
@@ -184,32 +209,81 @@ public class AuthenticateActivity extends AccountAuthenticatorActivity {
 
         private String username;
         private String password;
+        private String loginUrlString;
+        private String clientAuthId;
+        private String clientAuthSecret;
+        private Exception error = null;
 
         UserLoginTask(String username, String password) {
             this.username = username;
             this.password = password;
+            this.loginUrlString = getResources().getString(R.string.login_url);
+            this.clientAuthId = getResources().getString(R.string.client_auth_id);
+            this.clientAuthSecret = getResources().getString(R.string.client_auth_secret);
         }
 
         @Override
         protected Boolean doInBackground(Void... params) {
-            // TODO: attempt authentication against a network service.
+
+            StringBuilder urlBuilder = new StringBuilder();
+            //grant_type=password&username=test@example.com&password=password
+            urlBuilder.append(loginUrlString)
+                    .append('?')
+                    .append("grant_type=password")
+                    .append('&')
+                    .append("username=")
+                    .append(username)
+                    .append('&')
+                    .append("password=")
+                    .append(password);
+
+            Log.d(TAG, "loging url = " + urlBuilder.toString());
+
+            HttpParams httpParams = new BasicHttpParams();
+            HttpConnectionParams.setConnectionTimeout(httpParams, 5000);
+            HttpConnectionParams.setSoTimeout(httpParams, 5000);
+            HttpClient httpClient = new DefaultHttpClient(httpParams);
+
+            HttpPost httpPost = new HttpPost(urlBuilder.toString());
+            httpPost.setHeader(new BasicHeader("Authorization", "Basic " + getB64Auth(clientAuthId, clientAuthSecret)));
+            httpPost.setHeader(new BasicHeader(HTTP.CONTENT_TYPE, "application/json"));
+
+            StringBuilder responseBuilder = new StringBuilder();
 
             try {
-                // Simulate network access.
-                Thread.sleep(2000);
-            } catch (InterruptedException e) {
+                HttpResponse response = httpClient.execute(httpPost);
+                StatusLine statusLine = response.getStatusLine();
+                int statusCode = statusLine.getStatusCode();
+                if (statusCode == 200) {
+                    HttpEntity entity = response.getEntity();
+                    InputStream inputStream = entity.getContent();
+                    BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream));
+                    String line;
+                    while ((line = reader.readLine()) != null) {
+                        responseBuilder.append(line);
+                    }
+                    inputStream.close();
+                } else {
+                    Log.d(TAG, "Failed on login attempt: http status = " + statusCode);
+                    error = new Exception("Failed on login attempt: http status = " + statusCode);
+                    return false;
+                }
+            } catch (Exception e) {
+                Log.d(TAG, "Failed on login attempt: " + e.getLocalizedMessage());
+                error = e;
                 return false;
             }
 
-            for (String credential : DUMMY_CREDENTIALS) {
-                String[] pieces = credential.split(":");
-                if (pieces[0].equals(username)) {
-                    // Account exists, return true if the password matches.
-                    return pieces[1].equals(password);
-                }
-            }
+            GsonBuilder builder = new GsonBuilder();
+            builder.excludeFieldsWithoutExposeAnnotation();
+            Gson gson = builder.create();
 
-            return false;
+            Log.d(TAG, "JSON returned: " + responseBuilder.toString());
+            LoginResponse response = gson.fromJson(responseBuilder.toString(), LoginResponse.class);
+
+            Log.d(TAG, "response:" + response);
+
+            return true;
         }
 
         @Override
@@ -243,7 +317,93 @@ public class AuthenticateActivity extends AccountAuthenticatorActivity {
             mAuthTask = null;
             showProgress(false);
         }
+
+        private String getB64Auth (String id, String secret) {
+            String source = id + ":" + secret;
+
+            return Base64.encodeToString(source.getBytes(), Base64.URL_SAFE | Base64.NO_WRAP);
+        }
     }
+
+
+    /**
+     * Java POJO, Gson marshaled from a login request
+     *
+     * {"access_token":"e881b435-1e2f-4f8f-81f5-21274a522af8",
+     * "token_type":"bearer",
+     * "refresh_token":"0f2d5cf9-d047-4f73-8c77-75e8296fb2e5",
+     * "expires_in":5002253,
+     * "scope":" write read"}
+     */
+    private static class LoginResponse {
+        @Expose
+        @SerializedName("access_token")
+        private String accessToken;
+        @Expose
+        @SerializedName("token_type")
+        private String tokenType;
+        @Expose
+        @SerializedName("refresh_token")
+        private String refreshToken;
+        @Expose
+        @SerializedName("expires_in")
+        private long expiresIn; //milliseconds
+        @Expose
+        @SerializedName("scope")
+        private String scope;
+
+        public String getAccessToken() {
+            return accessToken;
+        }
+
+        public void setAccessToken(String accessToken) {
+            this.accessToken = accessToken;
+        }
+
+        public String getTokenType() {
+            return tokenType;
+        }
+
+        public void setTokenType(String tokenType) {
+            this.tokenType = tokenType;
+        }
+
+        public String getRefreshToken() {
+            return refreshToken;
+        }
+
+        public void setRefreshToken(String refreshToken) {
+            this.refreshToken = refreshToken;
+        }
+
+        public long getExpiresIn() {
+            return expiresIn;
+        }
+
+        public void setExpiresIn(long expiresIn) {
+            this.expiresIn = expiresIn;
+        }
+
+        public String getScope() {
+            return scope;
+        }
+
+        public void setScope(String scope) {
+            this.scope = scope;
+        }
+
+        @Override
+        public String toString() {
+            return "LoginResponse{" +
+                    "accessToken='" + accessToken + '\'' +
+                    ", tokenType='" + tokenType + '\'' +
+                    ", refreshToken='" + refreshToken + '\'' +
+                    ", expiresIn=" + expiresIn +
+                    ", scope='" + scope + '\'' +
+                    '}';
+        }
+    }
+
 }
 
 

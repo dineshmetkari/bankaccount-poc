@@ -11,4 +11,9 @@
     <string name="error_invalid_password">This password is too short</string>
     <string name="error_incorrect_password">This password is incorrect</string>
     <string name="error_field_required">This field is required</string>
+
+    <string name="login_url">http://10.0.1.20:9090/oauth2-provider/oauth/token</string>
+
+    <string name="client_auth_id">302a7d556175264c7e5b326827497349</string>
+    <string name="client_auth_secret">4770414c283a20347c7b553650425773</string>
 </resources>
