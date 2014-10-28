@@ -4,6 +4,7 @@ import android.accounts.Account;
 import android.accounts.AccountManager;
 import android.accounts.AccountManagerCallback;
 import android.accounts.AccountManagerFuture;
+import android.accounts.OnAccountsUpdateListener;
 import android.app.Activity;
 import android.app.Fragment;
 import android.content.Intent;
@@ -21,8 +22,33 @@ import static com.poc.android.bankaccount.authentication.Authenticator.ACCOUNT_R
 import static com.poc.android.bankaccount.authentication.Authenticator.ACCOUNT_TYPE;
 
 
-public class MainActivity extends Activity implements AccountManagerCallback<Bundle> {
+public class MainActivity extends Activity {
+    @SuppressWarnings("FieldCanBeLocal")
     private static String TAG = "MainActivity";
+
+    private AccountManagerCallback<Bundle> addAccountCallback = new AccountManagerCallback<Bundle>() {
+        private String TAG = "addAccountCallback";
+        @Override
+        public void run(AccountManagerFuture<Bundle> future) {
+            Log.d(TAG, "in run()");
+        }
+    };
+
+    private AccountManagerCallback<Bundle> getAuthTokenCallback = new AccountManagerCallback<Bundle>() {
+        private String TAG = "getAuthTokenCallback";
+        @Override
+        public void run(AccountManagerFuture<Bundle> future) {
+            Log.d(TAG, "in run()");
+        }
+    };
+
+    private OnAccountsUpdateListener onAccountsUpdateListener = new OnAccountsUpdateListener() {
+        private String TAG = "onAccountsUpdateListener";
+        @Override
+        public void onAccountsUpdated(Account[] accounts) {
+            Log.d(TAG, "in onAccountsUpdated()");
+        }
+    };
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -37,30 +63,20 @@ public class MainActivity extends Activity implements AccountManagerCallback<Bun
 
         AccountManager accountManager = AccountManager.get(this);
 
+        accountManager.addOnAccountsUpdatedListener(onAccountsUpdateListener, null, true);
+
         Account[] accounts = accountManager.getAccountsByType(ACCOUNT_TYPE);
 
         if (accounts.length > 0) {
             for (Account account : accounts) {
                 Log.d(TAG, "account found: " + account);
             }
+
+            accountManager.getAuthToken(accounts[0], ACCOUNT_READ_AUTH_TOKEN_TYPE, null, this, getAuthTokenCallback, null);
         } else {
             Log.d(TAG, "no accounts found");
-//            Account account = new Account("bar@example.com", Authenticator.ACCOUNT_TYPE);
-            //noinspection UnusedDeclaration
-            AccountManagerFuture<Bundle> bundleAccountManagerFuture = accountManager.addAccount(ACCOUNT_TYPE, ACCOUNT_READ_AUTH_TOKEN_TYPE, new String[] {}, null, this, this, null);
 
-//            Bundle result = null;
-//            try {
-//                result = bundleAccountManagerFuture.getResult();
-//            } catch (OperationCanceledException e) {
-//                Log.e(TAG, "account creation error", e);
-//            } catch (IOException e) {
-//                Log.e(TAG, "account creation error", e);
-//            } catch (AuthenticatorException e) {
-//                Log.e(TAG, "account creation error", e);
-//            }
-//
-//            Log.d(TAG, "addAccount() result: " + result);
+            @SuppressWarnings("UnusedDeclaration") AccountManagerFuture<Bundle> bundleAccountManagerFuture = accountManager.addAccount(ACCOUNT_TYPE, ACCOUNT_READ_AUTH_TOKEN_TYPE, new String[] {}, null, this, addAccountCallback, null);
         }
 
 //        accountManager.getAuthToken(account, Authenticator.ACCOUNT_READ_AUTH_TOKEN_TYPE, null, this, this, null);
@@ -93,8 +109,10 @@ public class MainActivity extends Activity implements AccountManagerCallback<Bun
     }
 
     @Override
-    public void run(AccountManagerFuture<Bundle> future) {
-        Log.d(TAG, "in run()");
+    protected void onDestroy() {
+        super.onDestroy();
+        AccountManager accountManager = AccountManager.get(this);
+        accountManager.removeOnAccountsUpdatedListener(onAccountsUpdateListener);
     }
 
     /**
