@@ -20,12 +20,12 @@ import android.view.inputmethod.EditorInfo;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.annotations.Expose;
 import com.google.gson.annotations.SerializedName;
-import com.google.gson.reflect.TypeToken;
 import com.poc.android.bankaccount.R;
 
 import org.apache.http.HttpEntity;
@@ -43,9 +43,8 @@ import org.apache.http.protocol.HTTP;
 import java.io.BufferedReader;
 import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.util.Map;
 
-import static com.poc.android.bankaccount.authentication.Authenticator.*;
+import static com.poc.android.bankaccount.authentication.Authenticator.ACCOUNT_TYPE;
 
 /**
  * A login screen that offers login via username/password.
@@ -53,13 +52,6 @@ import static com.poc.android.bankaccount.authentication.Authenticator.*;
  */
 public class AuthenticateActivity extends AccountAuthenticatorActivity {
 
-    /**
-     * A dummy authentication store containing known user names and passwords.
-     * TODO: remove after connecting to a real authentication system.
-     */
-    private static final String[] DUMMY_CREDENTIALS = new String[]{
-            "foo@example.com:hello", "bar@example.com:world"
-    };
     private static final String TAG = "AuthenticateActivity";
     /**
      * Keep track of the login task to ensure we can cancel it if requested.
@@ -75,6 +67,16 @@ public class AuthenticateActivity extends AccountAuthenticatorActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
+        // only allow one account at a time
+        AccountManager accountManager = AccountManager.get(this);
+        Account[] accounts = accountManager.getAccountsByType(ACCOUNT_TYPE);
+        if (accounts.length > 0) {
+            Toast.makeText(this, getString(R.string.account_exists_message_1), Toast.LENGTH_LONG).show();
+            Toast.makeText(this, getString(R.string.account_exists_message_2), Toast.LENGTH_LONG).show();
+            finish();
+        }
+
         setContentView(R.layout.activity_authenticate);
 
         // Set up the login form.
@@ -212,6 +214,7 @@ public class AuthenticateActivity extends AccountAuthenticatorActivity {
         private String loginUrlString;
         private String clientAuthId;
         private String clientAuthSecret;
+        @SuppressWarnings("UnusedDeclaration")
         private Exception error = null;
 
         UserLoginTask(String username, String password) {
@@ -335,6 +338,7 @@ public class AuthenticateActivity extends AccountAuthenticatorActivity {
      * "expires_in":5002253,
      * "scope":" write read"}
      */
+    @SuppressWarnings("UnusedDeclaration")
     private static class LoginResponse {
         @Expose
         @SerializedName("access_token")
