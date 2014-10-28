@@ -18,6 +18,7 @@ public class Authenticator extends AbstractAccountAuthenticator {
     private static final String TAG = "Authenticator";
     public static final String ACCOUNT_READ_AUTH_TOKEN_TYPE = "ACCOUNT_READ";
     public static final String ACCOUNT_TYPE = "com.poc.android.bankaccount";
+    public static final String TOKEN_TYPE = "bearer";
 
     private Context context;
 

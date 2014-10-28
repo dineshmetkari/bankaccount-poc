@@ -5,24 +5,24 @@ import android.accounts.AccountManager;
 import android.accounts.AccountManagerCallback;
 import android.accounts.AccountManagerFuture;
 import android.accounts.OnAccountsUpdateListener;
-import android.app.Activity;
-import android.app.Fragment;
-import android.content.Intent;
+import android.content.ContentResolver;
 import android.os.Bundle;
+import android.support.v4.app.Fragment;
+import android.support.v4.app.FragmentActivity;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
-
-import com.poc.android.bankaccount.authentication.AuthenticateActivity;
+import android.widget.Toast;
 
 import static com.poc.android.bankaccount.authentication.Authenticator.ACCOUNT_READ_AUTH_TOKEN_TYPE;
 import static com.poc.android.bankaccount.authentication.Authenticator.ACCOUNT_TYPE;
+import static com.poc.android.bankaccount.contentprovider.AccountContentProvider.AUTHORITY;
 
 
-public class MainActivity extends Activity {
+public class MainActivity extends FragmentActivity {
     @SuppressWarnings("FieldCanBeLocal")
     private static String TAG = "MainActivity";
 
@@ -31,9 +31,28 @@ public class MainActivity extends Activity {
         @Override
         public void run(AccountManagerFuture<Bundle> future) {
             Log.d(TAG, "in run()");
+
+            AccountManager accountManager = AccountManager.get(MainActivity.this);
+
+            Account[] accounts = accountManager.getAccountsByType(ACCOUNT_TYPE);
+
+            if (accounts.length > 0) {
+                for (Account account : accounts) {
+                    Log.d(TAG, "account found: " + account);
+                }
+            } else {
+                Log.d(TAG, "no accounts found");
+            }
         }
     };
 
+    private AccountManagerCallback<Boolean> removeAccountCallback = new AccountManagerCallback<Boolean>() {
+        private String TAG = "removeAccountCallback";
+        @Override
+        public void run(AccountManagerFuture<Boolean> future) {
+            Log.d(TAG, "in run()");
+        }
+    };
     private AccountManagerCallback<Bundle> getAuthTokenCallback = new AccountManagerCallback<Bundle>() {
         private String TAG = "getAuthTokenCallback";
         @Override
@@ -56,7 +75,7 @@ public class MainActivity extends Activity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
         if (savedInstanceState == null) {
-            getFragmentManager().beginTransaction()
+            getSupportFragmentManager().beginTransaction()
                     .add(R.id.container, new PlaceholderFragment())
                     .commit();
         }
@@ -76,7 +95,7 @@ public class MainActivity extends Activity {
         } else {
             Log.d(TAG, "no accounts found");
 
-            @SuppressWarnings("UnusedDeclaration") AccountManagerFuture<Bundle> bundleAccountManagerFuture = accountManager.addAccount(ACCOUNT_TYPE, ACCOUNT_READ_AUTH_TOKEN_TYPE, new String[] {}, null, this, addAccountCallback, null);
+           accountManager.addAccount(ACCOUNT_TYPE, ACCOUNT_READ_AUTH_TOKEN_TYPE, new String[] {}, null, this, addAccountCallback, null);
         }
 
 //        accountManager.getAuthToken(account, Authenticator.ACCOUNT_READ_AUTH_TOKEN_TYPE, null, this, this, null);
@@ -103,9 +122,53 @@ public class MainActivity extends Activity {
         return super.onOptionsItemSelected(item);
     }
 
-    public void displayLoginForm(View view) {
-        Intent loginIntent = new Intent(this, AuthenticateActivity.class);
-        startActivity(loginIntent);
+    public void signOff(View view) {
+        Log.d(TAG, "in signOff()");
+        AccountManager accountManager = AccountManager.get(this);
+
+        Account[] accounts = accountManager.getAccountsByType(ACCOUNT_TYPE);
+
+        if (accounts.length > 0) {
+            for (Account account : accounts) {
+                Log.d(TAG, "account found: " + account);
+                accountManager.removeAccount(account, removeAccountCallback, null);
+            }
+        } else {
+            Log.d(TAG, "no accounts found");
+        }
+    }
+
+    public void getBalance(View view) {
+        Log.d(TAG, "in getBalance()");
+
+        Account account = getAccount();
+
+        final Bundle settingsBundle = new Bundle();
+        settingsBundle.putBoolean(ContentResolver.SYNC_EXTRAS_MANUAL, true);
+        settingsBundle.putBoolean(ContentResolver.SYNC_EXTRAS_EXPEDITED, true);
+
+        if (account != null) {
+            ContentResolver.requestSync(account, AUTHORITY, settingsBundle);
+        } else {
+            AccountManager accountManager = AccountManager.get(this);
+
+            AccountManagerCallback<Bundle> callback = new AccountManagerCallback<Bundle>() {
+                private String TAG = "addAccountCallback";
+                @Override
+                public void run(AccountManagerFuture<Bundle> future) {
+                    Log.d(TAG, "in run()");
+
+                    Account newAccount = getAccount();
+                    if (newAccount != null) {
+                        ContentResolver.requestSync(newAccount, AUTHORITY, settingsBundle);
+                    } else {
+                        Toast.makeText(MainActivity.this, "error on sign in", Toast.LENGTH_LONG).show();
+                    }
+                }
+            };
+
+            accountManager.addAccount(ACCOUNT_TYPE, ACCOUNT_READ_AUTH_TOKEN_TYPE, new String[]{}, null, this, callback, null);
+        }
     }
 
     @Override
@@ -113,6 +176,22 @@ public class MainActivity extends Activity {
         super.onDestroy();
         AccountManager accountManager = AccountManager.get(this);
         accountManager.removeOnAccountsUpdatedListener(onAccountsUpdateListener);
+    }
+
+    private Account getAccount() {
+        AccountManager accountManager = AccountManager.get(MainActivity.this);
+
+        Account[] accounts = accountManager.getAccountsByType(ACCOUNT_TYPE);
+
+        if (accounts.length > 0) {
+            for (Account account : accounts) {
+                Log.d(TAG, "account found: " + account);
+            }
+            return accounts[0];
+        } else {
+            Log.d(TAG, "no accounts found");
+            return null;
+        }
     }
 
     /**
@@ -124,8 +203,7 @@ public class MainActivity extends Activity {
         }
 
         @Override
-        public View onCreateView(LayoutInflater inflater, ViewGroup container,
-                Bundle savedInstanceState) {
+        public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
             //noinspection UnnecessaryLocalVariable
             View rootView = inflater.inflate(R.layout.fragment_main, container, false);
             return rootView;

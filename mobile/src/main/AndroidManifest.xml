@@ -42,6 +42,26 @@
             android:label="@string/title_activity_authenticate"
             android:windowSoftInputMode="adjustResize|stateVisible" >
         </activity>
+
+        <service
+            android:name=".syncadapter.SyncService"
+            android:exported="false"
+            android:enabled="true">
+            <intent-filter>
+                <action android:name="android.content.SyncAdapter" />
+            </intent-filter>
+
+            <meta-data
+                android:name="android.content.SyncAdapter"
+                android:resource="@xml/syncadapter" />
+        </service>
+
+        <provider
+            android:name=".contentprovider.AccountContentProvider"
+            android:authorities="com.poc.android.bankaccount.datasync.provider"
+            android:enabled="true"
+            android:exported="false" >
+        </provider>
     </application>
 
 </manifest>
