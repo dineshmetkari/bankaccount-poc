@@ -45,6 +45,7 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 
 import static com.poc.android.bankaccount.authentication.Authenticator.ACCOUNT_TYPE;
+import static com.poc.android.bankaccount.authentication.Authenticator.TOKEN_TYPE;
 
 /**
  * A login screen that offers login via username/password.
@@ -207,7 +208,7 @@ public class AuthenticateActivity extends AccountAuthenticatorActivity {
      * Represents an asynchronous login/registration task used to authenticate
      * the user.
      */
-    public class UserLoginTask extends AsyncTask<Void, Void, Boolean> {
+    public class UserLoginTask extends AsyncTask<Void, Void, LoginResponse> {
 
         private String username;
         private String password;
@@ -226,7 +227,7 @@ public class AuthenticateActivity extends AccountAuthenticatorActivity {
         }
 
         @Override
-        protected Boolean doInBackground(Void... params) {
+        protected LoginResponse doInBackground(Void... params) {
 
             StringBuilder urlBuilder = new StringBuilder();
             //grant_type=password&username=test@example.com&password=password
@@ -269,12 +270,12 @@ public class AuthenticateActivity extends AccountAuthenticatorActivity {
                 } else {
                     Log.d(TAG, "Failed on login attempt: http status = " + statusCode);
                     error = new Exception("Failed on login attempt: http status = " + statusCode);
-                    return false;
+                    return null;
                 }
             } catch (Exception e) {
                 Log.d(TAG, "Failed on login attempt: " + e.getLocalizedMessage());
                 error = e;
-                return false;
+                return null;
             }
 
             GsonBuilder builder = new GsonBuilder();
@@ -286,20 +287,21 @@ public class AuthenticateActivity extends AccountAuthenticatorActivity {
 
             Log.d(TAG, "response:" + response);
 
-            return true;
+            return response;
         }
 
         @Override
-        protected void onPostExecute(final Boolean success) {
+        protected void onPostExecute(final LoginResponse loginResponse) {
             mAuthTask = null;
             showProgress(false);
 
-            if (success) {
+            if (loginResponse != null && loginResponse.getAccessToken() != null) {
                 AccountManager accountManager = AccountManager.get(AuthenticateActivity.this);
 
                 Account account = new Account(username, ACCOUNT_TYPE);
 
                 accountManager.addAccountExplicitly(account, password, null);
+                accountManager.setAuthToken(account, TOKEN_TYPE, loginResponse.getAccessToken());
 
                 Intent intent = new Intent();
                 intent.putExtra(AccountManager.KEY_ACCOUNT_NAME, username);

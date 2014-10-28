@@ -12,9 +12,67 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="@string/login_button_label"
-        android:id="@+id/login_button"
-        android:onClick="displayLoginForm"
+        android:id="@+id/signoff_button"
+        android:onClick="signOff"
         android:layout_centerHorizontal="true"
         android:layout_marginTop="224dp"/>
+
+    <Button
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="@string/balance_button_label"
+        android:id="@+id/balance_button"
+        android:onClick="getBalance"
+        android:layout_marginBottom="52dp"
+        android:layout_alignBottom="@+id/signoff_button"
+        android:layout_centerHorizontal="true"/>
+
+<LinearLayout
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_above="@+id/balance_button"
+    android:layout_alignParentLeft="true"
+    android:layout_alignParentStart="true"
+    android:id="@+id/linearLayout"
+    android:gravity="center_horizontal"
+    android:paddingBottom="10dp"
+    android:visibility="gone">
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textAppearance="?android:attr/textAppearanceLarge"
+        android:text="@string/balance_label"
+        android:id="@+id/textView"
+        android:paddingRight="10dp"/>
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textAppearance="?android:attr/textAppearanceLarge"
+        android:id="@+id/balanceTextView"/>
+</LinearLayout>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_above="@+id/linearLayout"
+        android:layout_alignParentLeft="true"
+        android:layout_alignParentStart="true"
+        android:gravity="center_horizontal"
+        android:visibility="gone">
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textAppearance="?android:attr/textAppearanceLarge"
+        android:text="@string/account_label"
+        android:id="@+id/textView3"
+        android:paddingRight="10dp"/>
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textAppearance="?android:attr/textAppearanceLarge"
+        android:id="@+id/AccountTextView"/>
+</LinearLayout>
 
 </RelativeLayout>
