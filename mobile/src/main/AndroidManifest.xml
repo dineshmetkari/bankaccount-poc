@@ -60,7 +60,7 @@
             android:name=".contentprovider.AccountContentProvider"
             android:authorities="com.poc.android.bankaccount.datasync.provider"
             android:enabled="true"
-            android:exported="false" >
+            android:exported="true" >
         </provider>
     </application>
 

@@ -24,8 +24,6 @@ import android.widget.Toast;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
-import com.google.gson.annotations.Expose;
-import com.google.gson.annotations.SerializedName;
 import com.poc.android.bankaccount.R;
 
 import org.apache.http.HttpEntity;
@@ -44,8 +42,9 @@ import java.io.BufferedReader;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 
+import static com.poc.android.bankaccount.authentication.Authenticator.ACCESS_AUTH_TOKEN_TYPE;
 import static com.poc.android.bankaccount.authentication.Authenticator.ACCOUNT_TYPE;
-import static com.poc.android.bankaccount.authentication.Authenticator.TOKEN_TYPE;
+import static com.poc.android.bankaccount.authentication.Authenticator.REFRESH_AUTH_TOKEN_TYPE;
 
 /**
  * A login screen that offers login via username/password.
@@ -208,7 +207,7 @@ public class AuthenticateActivity extends AccountAuthenticatorActivity {
      * Represents an asynchronous login/registration task used to authenticate
      * the user.
      */
-    public class UserLoginTask extends AsyncTask<Void, Void, LoginResponse> {
+    public class UserLoginTask extends AsyncTask<Void, Void, AuthResponse> {
 
         private String username;
         private String password;
@@ -227,7 +226,7 @@ public class AuthenticateActivity extends AccountAuthenticatorActivity {
         }
 
         @Override
-        protected LoginResponse doInBackground(Void... params) {
+        protected AuthResponse doInBackground(Void... params) {
 
             StringBuilder urlBuilder = new StringBuilder();
             //grant_type=password&username=test@example.com&password=password
@@ -241,7 +240,7 @@ public class AuthenticateActivity extends AccountAuthenticatorActivity {
                     .append("password=")
                     .append(password);
 
-            Log.d(TAG, "loging url = " + urlBuilder.toString());
+            Log.d(TAG, "logon url = " + urlBuilder.toString());
 
             HttpParams httpParams = new BasicHttpParams();
             HttpConnectionParams.setConnectionTimeout(httpParams, 5000);
@@ -283,7 +282,7 @@ public class AuthenticateActivity extends AccountAuthenticatorActivity {
             Gson gson = builder.create();
 
             Log.d(TAG, "JSON returned: " + responseBuilder.toString());
-            LoginResponse response = gson.fromJson(responseBuilder.toString(), LoginResponse.class);
+            AuthResponse response = gson.fromJson(responseBuilder.toString(), AuthResponse.class);
 
             Log.d(TAG, "response:" + response);
 
@@ -291,7 +290,7 @@ public class AuthenticateActivity extends AccountAuthenticatorActivity {
         }
 
         @Override
-        protected void onPostExecute(final LoginResponse loginResponse) {
+        protected void onPostExecute(final AuthResponse loginResponse) {
             mAuthTask = null;
             showProgress(false);
 
@@ -301,7 +300,8 @@ public class AuthenticateActivity extends AccountAuthenticatorActivity {
                 Account account = new Account(username, ACCOUNT_TYPE);
 
                 accountManager.addAccountExplicitly(account, password, null);
-                accountManager.setAuthToken(account, TOKEN_TYPE, loginResponse.getAccessToken());
+                accountManager.setAuthToken(account, ACCESS_AUTH_TOKEN_TYPE, loginResponse.getAccessToken());
+                accountManager.setAuthToken(account, REFRESH_AUTH_TOKEN_TYPE, loginResponse.getRefreshToken());
 
                 Intent intent = new Intent();
                 intent.putExtra(AccountManager.KEY_ACCOUNT_NAME, username);
@@ -329,87 +329,6 @@ public class AuthenticateActivity extends AccountAuthenticatorActivity {
             return Base64.encodeToString(source.getBytes(), Base64.URL_SAFE | Base64.NO_WRAP);
         }
     }
-
-
-    /**
-     * Java POJO, Gson marshaled from a login request
-     *
-     * {"access_token":"e881b435-1e2f-4f8f-81f5-21274a522af8",
-     * "token_type":"bearer",
-     * "refresh_token":"0f2d5cf9-d047-4f73-8c77-75e8296fb2e5",
-     * "expires_in":5002253,
-     * "scope":" write read"}
-     */
-    @SuppressWarnings("UnusedDeclaration")
-    private static class LoginResponse {
-        @Expose
-        @SerializedName("access_token")
-        private String accessToken;
-        @Expose
-        @SerializedName("token_type")
-        private String tokenType;
-        @Expose
-        @SerializedName("refresh_token")
-        private String refreshToken;
-        @Expose
-        @SerializedName("expires_in")
-        private long expiresIn; //milliseconds
-        @Expose
-        @SerializedName("scope")
-        private String scope;
-
-        public String getAccessToken() {
-            return accessToken;
-        }
-
-        public void setAccessToken(String accessToken) {
-            this.accessToken = accessToken;
-        }
-
-        public String getTokenType() {
-            return tokenType;
-        }
-
-        public void setTokenType(String tokenType) {
-            this.tokenType = tokenType;
-        }
-
-        public String getRefreshToken() {
-            return refreshToken;
-        }
-
-        public void setRefreshToken(String refreshToken) {
-            this.refreshToken = refreshToken;
-        }
-
-        public long getExpiresIn() {
-            return expiresIn;
-        }
-
-        public void setExpiresIn(long expiresIn) {
-            this.expiresIn = expiresIn;
-        }
-
-        public String getScope() {
-            return scope;
-        }
-
-        public void setScope(String scope) {
-            this.scope = scope;
-        }
-
-        @Override
-        public String toString() {
-            return "LoginResponse{" +
-                    "accessToken='" + accessToken + '\'' +
-                    ", tokenType='" + tokenType + '\'' +
-                    ", refreshToken='" + refreshToken + '\'' +
-                    ", expiresIn=" + expiresIn +
-                    ", scope='" + scope + '\'' +
-                    '}';
-        }
-    }
-
 }
 
 
