@@ -6,6 +6,8 @@ import android.accounts.AccountManagerCallback;
 import android.accounts.AccountManagerFuture;
 import android.accounts.OnAccountsUpdateListener;
 import android.content.ContentResolver;
+import android.content.SyncStatusObserver;
+import android.database.Cursor;
 import android.os.Bundle;
 import android.support.v4.app.Fragment;
 import android.support.v4.app.FragmentActivity;
@@ -15,16 +17,31 @@ import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.TextView;
 import android.widget.Toast;
 
-import static com.poc.android.bankaccount.authentication.Authenticator.ACCOUNT_READ_AUTH_TOKEN_TYPE;
+import com.poc.android.bankaccount.contentprovider.AccountContentObserver;
+import com.poc.android.bankaccount.contentprovider.AccountListener;
+import com.poc.android.bankaccount.model.BankAccount;
+import com.poc.android.bankaccount.syncadapter.SyncStatusObserverImpl;
+
+import java.text.NumberFormat;
+
 import static com.poc.android.bankaccount.authentication.Authenticator.ACCOUNT_TYPE;
+import static com.poc.android.bankaccount.authentication.Authenticator.REFRESH_AUTH_TOKEN_TYPE;
+import static com.poc.android.bankaccount.contentprovider.AccountContentProvider.ACCOUNT_ALL_FIELDS;
 import static com.poc.android.bankaccount.contentprovider.AccountContentProvider.AUTHORITY;
+import static com.poc.android.bankaccount.contentprovider.AccountContentProvider.ACCOUNTS_CONTENT_URI;
 
 
 public class MainActivity extends FragmentActivity {
     @SuppressWarnings("FieldCanBeLocal")
     private static String TAG = "MainActivity";
+
+    private AccountContentObserver accountContentObserver;
+    private SyncStatusObserver syncStatusObserver;
+    private Object syncStatusObserverHandle;
+    private PlaceholderFragment fragment = new PlaceholderFragment();
 
     private AccountManagerCallback<Bundle> addAccountCallback = new AccountManagerCallback<Bundle>() {
         private String TAG = "addAccountCallback";
@@ -53,6 +70,7 @@ public class MainActivity extends FragmentActivity {
             Log.d(TAG, "in run()");
         }
     };
+
     private AccountManagerCallback<Bundle> getAuthTokenCallback = new AccountManagerCallback<Bundle>() {
         private String TAG = "getAuthTokenCallback";
         @Override
@@ -74,11 +92,21 @@ public class MainActivity extends FragmentActivity {
         Log.d(TAG, "in onCreate()");
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+
+
+
         if (savedInstanceState == null) {
-            getSupportFragmentManager().beginTransaction()
-                    .add(R.id.container, new PlaceholderFragment())
+            getSupportFragmentManager()
+                    .beginTransaction()
+                    .add(R.id.container, fragment)
                     .commit();
         }
+
+        syncStatusObserver = new SyncStatusObserverImpl();
+
+        accountContentObserver = new AccountContentObserver(null, fragment);
+
+        getContentResolver().registerContentObserver(ACCOUNTS_CONTENT_URI, true, accountContentObserver);
 
         AccountManager accountManager = AccountManager.get(this);
 
@@ -91,16 +119,46 @@ public class MainActivity extends FragmentActivity {
                 Log.d(TAG, "account found: " + account);
             }
 
-            accountManager.getAuthToken(accounts[0], ACCOUNT_READ_AUTH_TOKEN_TYPE, null, this, getAuthTokenCallback, null);
+            accountManager.getAuthToken(accounts[0], REFRESH_AUTH_TOKEN_TYPE, null, this, getAuthTokenCallback, null);
         } else {
             Log.d(TAG, "no accounts found");
 
-           accountManager.addAccount(ACCOUNT_TYPE, ACCOUNT_READ_AUTH_TOKEN_TYPE, new String[] {}, null, this, addAccountCallback, null);
+           accountManager.addAccount(ACCOUNT_TYPE, REFRESH_AUTH_TOKEN_TYPE, new String[] {}, null, this, addAccountCallback, null);
         }
-
-//        accountManager.getAuthToken(account, Authenticator.ACCOUNT_READ_AUTH_TOKEN_TYPE, null, this, this, null);
     }
 
+    @Override
+    protected void onResume() {
+        Log.d(TAG, "onResume()");
+        super.onResume();
+
+        int mask = ContentResolver.SYNC_OBSERVER_TYPE_PENDING | ContentResolver.SYNC_OBSERVER_TYPE_ACTIVE | ContentResolver.SYNC_OBSERVER_TYPE_SETTINGS;
+        syncStatusObserverHandle = ContentResolver.addStatusChangeListener(mask, syncStatusObserver);
+    }
+
+    @Override
+    protected void onPause() {
+        Log.d(TAG, "onPause()");
+        super.onPause();
+        if (syncStatusObserverHandle != null) {
+            ContentResolver.removeStatusChangeListener(syncStatusObserverHandle);
+            syncStatusObserverHandle = null;
+        }
+    }
+
+    @Override
+    protected void onStop() {
+        Log.d(TAG, "onStop()");
+        super.onStop();
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        AccountManager accountManager = AccountManager.get(this);
+        accountManager.removeOnAccountsUpdatedListener(onAccountsUpdateListener);
+        getContentResolver().unregisterContentObserver(accountContentObserver);
+    }
 
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
@@ -126,6 +184,8 @@ public class MainActivity extends FragmentActivity {
         Log.d(TAG, "in signOff()");
         AccountManager accountManager = AccountManager.get(this);
 
+        fragment.hideAccount();
+
         Account[] accounts = accountManager.getAccountsByType(ACCOUNT_TYPE);
 
         if (accounts.length > 0) {
@@ -140,6 +200,8 @@ public class MainActivity extends FragmentActivity {
 
     public void getBalance(View view) {
         Log.d(TAG, "in getBalance()");
+
+        fragment.hideAccount();
 
         Account account = getAccount();
 
@@ -167,15 +229,8 @@ public class MainActivity extends FragmentActivity {
                 }
             };
 
-            accountManager.addAccount(ACCOUNT_TYPE, ACCOUNT_READ_AUTH_TOKEN_TYPE, new String[]{}, null, this, callback, null);
+            accountManager.addAccount(ACCOUNT_TYPE, REFRESH_AUTH_TOKEN_TYPE, new String[]{}, null, this, callback, null);
         }
-    }
-
-    @Override
-    protected void onDestroy() {
-        super.onDestroy();
-        AccountManager accountManager = AccountManager.get(this);
-        accountManager.removeOnAccountsUpdatedListener(onAccountsUpdateListener);
     }
 
     private Account getAccount() {
@@ -197,7 +252,13 @@ public class MainActivity extends FragmentActivity {
     /**
      * A placeholder fragment containing a simple view.
      */
-    public static class PlaceholderFragment extends Fragment {
+    public static class PlaceholderFragment extends Fragment implements AccountListener {
+        private static final String TAG = "PlaceholderFragment";
+
+        private TextView accountBalance;
+        private TextView accountName;
+        private View balanceLayout;
+        private View accountNameLayout;
 
         public PlaceholderFragment() {
         }
@@ -206,7 +267,44 @@ public class MainActivity extends FragmentActivity {
         public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
             //noinspection UnnecessaryLocalVariable
             View rootView = inflater.inflate(R.layout.fragment_main, container, false);
+
+            accountBalance = (TextView) rootView.findViewById(R.id.balanceTextView);
+            accountName = (TextView) rootView.findViewById(R.id.accountTextView);
+            balanceLayout = rootView.findViewById(R.id.balanceLayout);
+            accountNameLayout = rootView.findViewById(R.id.accountNameLayout);
+
             return rootView;
+        }
+
+        @Override
+        public void update() {
+            Log.d(TAG, "update()");
+
+            getActivity().runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    Log.d(TAG, "on UI Thread");
+                    Cursor cursor = getActivity().getContentResolver().query(ACCOUNTS_CONTENT_URI, ACCOUNT_ALL_FIELDS, null, new String[]{}, null);
+                    BankAccount bankAccount = BankAccount.cursorToBankAccount(cursor);
+                    cursor.close();
+
+                    NumberFormat numberFormat = NumberFormat.getCurrencyInstance();
+
+                    double amount = bankAccount.getBalance();
+                    amount = amount / 100;
+
+                    accountBalance.setText(numberFormat.format(amount));
+                    accountName.setText(bankAccount.getName());
+
+                    balanceLayout.setVisibility(View.VISIBLE);
+                    accountNameLayout.setVisibility(View.VISIBLE);
+                }
+            });
+        }
+
+        public void hideAccount() {
+            balanceLayout.setVisibility(View.INVISIBLE);
+            accountNameLayout.setVisibility(View.INVISIBLE);
         }
     }
 }

@@ -33,7 +33,7 @@
     android:layout_above="@+id/balance_button"
     android:layout_alignParentLeft="true"
     android:layout_alignParentStart="true"
-    android:id="@+id/linearLayout"
+    android:id="@+id/balanceLayout"
     android:gravity="center_horizontal"
     android:paddingBottom="10dp"
     android:visibility="gone">
@@ -55,11 +55,12 @@
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_above="@+id/linearLayout"
+        android:layout_above="@+id/balanceLayout"
         android:layout_alignParentLeft="true"
         android:layout_alignParentStart="true"
         android:gravity="center_horizontal"
-        android:visibility="gone">
+        android:visibility="gone"
+        android:id="@+id/accountNameLayout">
     <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
@@ -72,7 +73,7 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:textAppearance="?android:attr/textAppearanceLarge"
-        android:id="@+id/AccountTextView"/>
+        android:id="@+id/accountTextView"/>
 </LinearLayout>
 
 </RelativeLayout>
