@@ -5,9 +5,11 @@ import android.accounts.AccountManager;
 import android.accounts.AccountManagerCallback;
 import android.accounts.AccountManagerFuture;
 import android.accounts.OnAccountsUpdateListener;
+import android.annotation.TargetApi;
 import android.content.ContentResolver;
 import android.content.SyncStatusObserver;
 import android.database.Cursor;
+import android.os.Build;
 import android.os.Bundle;
 import android.support.v4.app.Fragment;
 import android.support.v4.app.FragmentActivity;
@@ -27,11 +29,11 @@ import com.poc.android.bankaccount.syncadapter.SyncStatusObserverImpl;
 
 import java.text.NumberFormat;
 
+import static com.poc.android.bankaccount.authentication.Authenticator.ACCESS_AUTH_TOKEN_TYPE;
 import static com.poc.android.bankaccount.authentication.Authenticator.ACCOUNT_TYPE;
-import static com.poc.android.bankaccount.authentication.Authenticator.REFRESH_AUTH_TOKEN_TYPE;
+import static com.poc.android.bankaccount.contentprovider.AccountContentProvider.ACCOUNTS_CONTENT_URI;
 import static com.poc.android.bankaccount.contentprovider.AccountContentProvider.ACCOUNT_ALL_FIELDS;
 import static com.poc.android.bankaccount.contentprovider.AccountContentProvider.AUTHORITY;
-import static com.poc.android.bankaccount.contentprovider.AccountContentProvider.ACCOUNTS_CONTENT_URI;
 
 
 public class MainActivity extends FragmentActivity {
@@ -119,11 +121,11 @@ public class MainActivity extends FragmentActivity {
                 Log.d(TAG, "account found: " + account);
             }
 
-            accountManager.getAuthToken(accounts[0], REFRESH_AUTH_TOKEN_TYPE, null, this, getAuthTokenCallback, null);
+            accountManager.getAuthToken(accounts[0], ACCESS_AUTH_TOKEN_TYPE, null, this, getAuthTokenCallback, null);
         } else {
             Log.d(TAG, "no accounts found");
 
-           accountManager.addAccount(ACCOUNT_TYPE, REFRESH_AUTH_TOKEN_TYPE, new String[] {}, null, this, addAccountCallback, null);
+           accountManager.addAccount(ACCOUNT_TYPE, ACCESS_AUTH_TOKEN_TYPE, new String[] {}, null, this, addAccountCallback, null);
         }
     }
 
@@ -198,22 +200,50 @@ public class MainActivity extends FragmentActivity {
         }
     }
 
+    @TargetApi(Build.VERSION_CODES.KITKAT)
     public void getBalance(View view) {
         Log.d(TAG, "in getBalance()");
 
         fragment.hideAccount();
 
-        Account account = getAccount();
+        final Account account = getAccount();
 
         final Bundle settingsBundle = new Bundle();
         settingsBundle.putBoolean(ContentResolver.SYNC_EXTRAS_MANUAL, true);
         settingsBundle.putBoolean(ContentResolver.SYNC_EXTRAS_EXPEDITED, true);
 
-        if (account != null) {
-            ContentResolver.requestSync(account, AUTHORITY, settingsBundle);
-        } else {
-            AccountManager accountManager = AccountManager.get(this);
+        final AccountManager accountManager = AccountManager.get(this);
 
+        if (account != null) {
+            // if account found, check for cached auth token
+            if (accountManager.peekAuthToken(account, ACCESS_AUTH_TOKEN_TYPE) == null) {
+                // if no auth token, request a new one, this should result in sign on dialog
+                AccountManagerCallback<Bundle> callback = new AccountManagerCallback<Bundle>() {
+                    private String TAG = "getAuthTokenCallback";
+
+                    @Override
+                    public void run(AccountManagerFuture<Bundle> future) {
+                        Log.d(TAG, "in run()");
+
+                        // after sign on dialog, check auth token again,
+                        if (accountManager.peekAuthToken(account, ACCESS_AUTH_TOKEN_TYPE) != null) {
+                            // auth token exists, request sync
+                            ContentResolver.requestSync(account, AUTHORITY, settingsBundle);
+                        } else {
+                            // otherwise some error or a cancelled sign on
+                            Toast.makeText(MainActivity.this, "error on sign in", Toast.LENGTH_LONG).show();
+                        }
+                    }
+                };
+
+                accountManager.getAuthToken(account, ACCESS_AUTH_TOKEN_TYPE, null, this, callback, null);
+            } else {
+                // account and auth token exist, request sync
+                ContentResolver.requestSync(account, AUTHORITY, settingsBundle);
+            }
+        } else {
+            // account not found, call addAccount which should present the sign on
+            // activity and add an account and auth token
             AccountManagerCallback<Bundle> callback = new AccountManagerCallback<Bundle>() {
                 private String TAG = "addAccountCallback";
                 @Override
@@ -229,7 +259,7 @@ public class MainActivity extends FragmentActivity {
                 }
             };
 
-            accountManager.addAccount(ACCOUNT_TYPE, REFRESH_AUTH_TOKEN_TYPE, new String[]{}, null, this, callback, null);
+            accountManager.addAccount(ACCOUNT_TYPE, ACCESS_AUTH_TOKEN_TYPE, new String[]{}, null, this, callback, null);
         }
     }
 

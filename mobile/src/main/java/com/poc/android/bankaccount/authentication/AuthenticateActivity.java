@@ -20,7 +20,6 @@ import android.view.inputmethod.EditorInfo;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.TextView;
-import android.widget.Toast;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
@@ -42,7 +41,6 @@ import java.io.BufferedReader;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 
-import static com.poc.android.bankaccount.authentication.Authenticator.ACCESS_AUTH_TOKEN_TYPE;
 import static com.poc.android.bankaccount.authentication.Authenticator.ACCOUNT_TYPE;
 import static com.poc.android.bankaccount.authentication.Authenticator.REFRESH_AUTH_TOKEN_TYPE;
 
@@ -64,18 +62,11 @@ public class AuthenticateActivity extends AccountAuthenticatorActivity {
     private View mProgressView;
     private View mLoginFormView;
 
+    private Account existingAccount = null;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-
-        // only allow one account at a time
-        AccountManager accountManager = AccountManager.get(this);
-        Account[] accounts = accountManager.getAccountsByType(ACCOUNT_TYPE);
-        if (accounts.length > 0) {
-            Toast.makeText(this, getString(R.string.account_exists_message_1), Toast.LENGTH_LONG).show();
-            Toast.makeText(this, getString(R.string.account_exists_message_2), Toast.LENGTH_LONG).show();
-            finish();
-        }
 
         setContentView(R.layout.activity_authenticate);
 
@@ -104,6 +95,17 @@ public class AuthenticateActivity extends AccountAuthenticatorActivity {
 
         mLoginFormView = findViewById(R.id.login_form);
         mProgressView = findViewById(R.id.login_progress);
+
+        // only allow one account at a time, if one exists, sign on
+        // and update the auth tokens, don't save the password
+        AccountManager accountManager = AccountManager.get(this);
+        Account[] accounts = accountManager.getAccountsByType(ACCOUNT_TYPE);
+        if (accounts.length > 0) {
+            existingAccount = accounts[0];
+
+            mUsernameView.setText(existingAccount.name);
+            mPasswordView.requestFocus();
+        }
     }
 
 
@@ -297,16 +299,21 @@ public class AuthenticateActivity extends AccountAuthenticatorActivity {
             if (loginResponse != null && loginResponse.getAccessToken() != null) {
                 AccountManager accountManager = AccountManager.get(AuthenticateActivity.this);
 
-                Account account = new Account(username, ACCOUNT_TYPE);
+                Account account;
+                if (existingAccount != null && username.equals(existingAccount.name)) {
+                    account = existingAccount;
+                } else {
+                    account = new Account(username, ACCOUNT_TYPE);
+                    accountManager.addAccountExplicitly(account, null, null); // never save password
+                }
 
-                accountManager.addAccountExplicitly(account, password, null);
-                accountManager.setAuthToken(account, ACCESS_AUTH_TOKEN_TYPE, loginResponse.getAccessToken());
+//                accountManager.setAuthToken(account, ACCESS_AUTH_TOKEN_TYPE, loginResponse.getAccessToken());
                 accountManager.setAuthToken(account, REFRESH_AUTH_TOKEN_TYPE, loginResponse.getRefreshToken());
 
                 Intent intent = new Intent();
                 intent.putExtra(AccountManager.KEY_ACCOUNT_NAME, username);
                 intent.putExtra(AccountManager.KEY_ACCOUNT_TYPE, ACCOUNT_TYPE);
-                intent.putExtra(AccountManager.KEY_AUTHTOKEN, ACCOUNT_TYPE);
+                intent.putExtra(AccountManager.KEY_AUTHTOKEN, loginResponse.getAccessToken());
                 setAccountAuthenticatorResult(intent.getExtras());
                 setResult(RESULT_OK, intent);
 
