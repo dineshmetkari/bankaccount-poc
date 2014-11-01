@@ -36,13 +36,10 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.util.Arrays;
 
-import static android.accounts.AccountManager.*;
 import static android.accounts.AccountManager.KEY_ACCOUNT_AUTHENTICATOR_RESPONSE;
-import static android.accounts.AccountManager.KEY_ACCOUNT_NAME;
-import static android.accounts.AccountManager.KEY_ACCOUNT_TYPE;
 import static android.accounts.AccountManager.KEY_AUTHTOKEN;
-import static android.accounts.AccountManager.KEY_ERROR_MESSAGE;
 import static android.accounts.AccountManager.KEY_INTENT;
+import static android.accounts.AccountManager.get;
 
 public class Authenticator extends AbstractAccountAuthenticator {
     private static final String TAG = "Authenticator";
@@ -86,9 +83,9 @@ public class Authenticator extends AbstractAccountAuthenticator {
     }
 
     /**
-     * getting here means the AccountManager access auth token was null.  Most like set
-     * by someone who had access rejected using it. So here we will attempt to use the refresh token
-     * to acquire a new access token
+     * getting here means the AccountManager auth token was null.  Most like set
+     * by someone who had access rejected using it. So here we will prompt the user to password
+     * which will result in a new auth token
      *
      * @param response from AccountManager
      * @param account from AccountManager
@@ -102,36 +99,11 @@ public class Authenticator extends AbstractAccountAuthenticator {
     public Bundle getAuthToken(AccountAuthenticatorResponse response, Account account, String authTokenType, Bundle options) throws NetworkErrorException {
         Log.d(TAG, "getAuthToken(" + response + ", " + account + ", " + authTokenType + ", " + options + ")");
 
-        // attempt to fetch the cached refresh token
-        String refreshToken = getRefreshTokenFromCache(account);
-
-        if (refreshToken != null) {
-            // attempt to acquire an access token using the refresh token
-            AuthResponse authResponse = refreshAccessToken(refreshToken);
-            if (authResponse.getError() != null || authResponse.getAccessToken() ==  null) {
-                // error getting access token
-                Bundle result = new Bundle();
-                result.putString(KEY_ERROR_MESSAGE, "error refreshing access token: " + authResponse.getError().getMessage());
-                Log.e(TAG, "error refreshing access token: " + authResponse.getError().getMessage());
-                return result;
-            } else {
-                // here have received a new access token. pack in a Bundle and return it
-                // to AccountManager to cache
-                Bundle result = new Bundle();
-                result.putString(KEY_ACCOUNT_NAME, account.name);
-                result.putString(KEY_ACCOUNT_TYPE, Authenticator.ACCOUNT_TYPE);
-                result.putString(KEY_AUTHTOKEN, authResponse.getAccessToken());
-            }
-        } else {
-            // no refresh token found, return sign on activity intent so the user can
-            // authenticate
-            Intent intent = new Intent(context, AuthenticateActivity.class);
-            intent.putExtra(KEY_ACCOUNT_AUTHENTICATOR_RESPONSE, response);
-            Bundle result = new Bundle();
-            result.putParcelable(KEY_INTENT, intent);
-            return result;
-        }
-        return null;
+        Intent intent = new Intent(context, AuthenticateActivity.class);
+        intent.putExtra(KEY_ACCOUNT_AUTHENTICATOR_RESPONSE, response);
+        Bundle result = new Bundle();
+        result.putParcelable(KEY_INTENT, intent);
+        return result;
     }
 
     @Override
@@ -158,6 +130,7 @@ public class Authenticator extends AbstractAccountAuthenticator {
         return Base64.encodeToString(source.getBytes(), Base64.URL_SAFE | Base64.NO_WRAP);
     }
 
+    @SuppressWarnings("UnusedDeclaration")
     private String getRefreshTokenFromCache(Account account) {
         Log.d(TAG, "fetching refresh token");
 
@@ -184,6 +157,7 @@ public class Authenticator extends AbstractAccountAuthenticator {
         return refreshToken;
     }
 
+    @SuppressWarnings("UnusedDeclaration")
     private AuthResponse refreshAccessToken(String refreshToken) {
         String loginUrlString = context.getResources().getString(R.string.login_url);
         String clientAuthId = context.getResources().getString(R.string.client_auth_id);

@@ -83,8 +83,13 @@ public class SyncAdapter extends AbstractThreadedSyncAdapter {
             return;
         }
 
-        assert authority != null;
         Log.d(TAG, "authToken = " + authToken);
+
+        if (authToken == null) {
+            Log.d(TAG, "can't perform sync, account needs to re-authenticate");
+            syncResult.stats.numAuthExceptions++;
+            return;
+        }
 
         BankAccount bankAccount;
 
@@ -93,6 +98,12 @@ public class SyncAdapter extends AbstractThreadedSyncAdapter {
         } catch (IOException e) {
             Log.e(TAG, "Sync operation failed:" + e.getMessage());
             syncResult.stats.numIoExceptions++;
+            return;
+        } catch (AuthenticatorException ae) {
+            Log.d(TAG, "request failed authentication, invalidating auth token");
+            // invalidate auth token
+            accountManager.invalidateAuthToken(Authenticator.ACCOUNT_TYPE, authToken);
+            syncResult.stats.numAuthExceptions++;
             return;
         }
 
@@ -114,7 +125,7 @@ public class SyncAdapter extends AbstractThreadedSyncAdapter {
         }
     }
 
-    private BankAccount getBankAccount(String authToken) throws IOException {
+    private BankAccount getBankAccount(String authToken) throws IOException, AuthenticatorException {
         String loginUrlString = getContext().getResources().getString(R.string.account_url);
 
         StringBuilder urlBuilder = new StringBuilder();
@@ -152,8 +163,7 @@ public class SyncAdapter extends AbstractThreadedSyncAdapter {
             inputStream.close();
         } else {
             if (statusCode == 401) { // Unauthorized
-                AccountManager accountManager = AccountManager.get(getContext());
-                accountManager.invalidateAuthToken(Authenticator.ACCOUNT_TYPE, authToken);
+                throw new AuthenticatorException("Failed on accessing account: http status = " + statusCode);
             }
 
             throw new IOException("Failed on accessing account: http status = " + statusCode);
