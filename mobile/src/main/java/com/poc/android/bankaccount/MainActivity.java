@@ -6,9 +6,15 @@ import android.accounts.AccountManagerCallback;
 import android.accounts.AccountManagerFuture;
 import android.accounts.OnAccountsUpdateListener;
 import android.annotation.TargetApi;
+import android.content.BroadcastReceiver;
 import android.content.ContentResolver;
+import android.content.Context;
+import android.content.Intent;
+import android.content.IntentFilter;
+import android.content.IntentSender;
 import android.content.SyncStatusObserver;
 import android.database.Cursor;
+import android.os.AsyncTask;
 import android.os.Build;
 import android.os.Bundle;
 import android.support.v4.app.Fragment;
@@ -22,28 +28,53 @@ import android.view.ViewGroup;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import com.google.android.gms.common.ConnectionResult;
+import com.google.android.gms.common.api.GoogleApiClient;
+import com.google.android.gms.common.api.PendingResult;
+import com.google.android.gms.common.api.ResultCallback;
+import com.google.android.gms.wearable.DataApi;
+import com.google.android.gms.wearable.DataEventBuffer;
+import com.google.android.gms.wearable.MessageApi;
+import com.google.android.gms.wearable.MessageEvent;
+import com.google.android.gms.wearable.Node;
+import com.google.android.gms.wearable.NodeApi;
+import com.google.android.gms.wearable.Wearable;
 import com.poc.android.bankaccount.contentprovider.AccountContentObserver;
 import com.poc.android.bankaccount.contentprovider.AccountListener;
 import com.poc.android.bankaccount.model.BankAccount;
 import com.poc.android.bankaccount.syncadapter.SyncStatusObserverImpl;
 
 import java.text.NumberFormat;
+import java.util.Collection;
+import java.util.HashSet;
 
 import static com.poc.android.bankaccount.authentication.Authenticator.ACCESS_AUTH_TOKEN_TYPE;
+import static com.poc.android.bankaccount.authentication.Authenticator.ACCOUNT_NAME_EXTRA;
 import static com.poc.android.bankaccount.authentication.Authenticator.ACCOUNT_TYPE;
+import static com.poc.android.bankaccount.authentication.Authenticator.AUTH_FAILED_ACTION;
 import static com.poc.android.bankaccount.contentprovider.AccountContentProvider.ACCOUNTS_CONTENT_URI;
 import static com.poc.android.bankaccount.contentprovider.AccountContentProvider.ACCOUNT_ALL_FIELDS;
 import static com.poc.android.bankaccount.contentprovider.AccountContentProvider.AUTHORITY;
 
 
-public class MainActivity extends FragmentActivity {
+public class MainActivity extends FragmentActivity implements DataApi.DataListener,
+        MessageApi.MessageListener, NodeApi.NodeListener, GoogleApiClient.ConnectionCallbacks,
+        GoogleApiClient.OnConnectionFailedListener {
+
     @SuppressWarnings("FieldCanBeLocal")
-    private static String TAG = "MainActivity";
+    private static final String TAG = "MainActivity";
+
+    /** Request code for launching the Intent to resolve Google Play services errors. */
+    private static final int REQUEST_RESOLVE_ERROR = 1000;
+    public static final String START_ACTIVITY_PATH = "/start-activity";
 
     private AccountContentObserver accountContentObserver;
     private SyncStatusObserver syncStatusObserver;
     private Object syncStatusObserverHandle;
     private PlaceholderFragment fragment = new PlaceholderFragment();
+
+    private GoogleApiClient googleApiClient;
+    private boolean resolvingError;
 
     private AccountManagerCallback<Bundle> addAccountCallback = new AccountManagerCallback<Bundle>() {
         private String TAG = "addAccountCallback";
@@ -89,13 +120,25 @@ public class MainActivity extends FragmentActivity {
         }
     };
 
+    private BroadcastReceiver authFailedBroadcastReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            String accountName = intent.getStringExtra(ACCOUNT_NAME_EXTRA);
+            Toast.makeText(MainActivity.this, "authentication failed for " + accountName, Toast.LENGTH_LONG).show();
+            Account account = new Account(accountName, ACCOUNT_TYPE);
+
+            AccountManager accountManager = AccountManager.get(MainActivity.this);
+
+            accountManager.getAuthToken(account, ACCESS_AUTH_TOKEN_TYPE, null, MainActivity.this, getAuthTokenCallback, null);
+        }
+    };
+
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         Log.d(TAG, "in onCreate()");
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-
-
 
         if (savedInstanceState == null) {
             getSupportFragmentManager()
@@ -127,6 +170,19 @@ public class MainActivity extends FragmentActivity {
 
            accountManager.addAccount(ACCOUNT_TYPE, ACCESS_AUTH_TOKEN_TYPE, new String[] {}, null, this, addAccountCallback, null);
         }
+
+        googleApiClient = new GoogleApiClient.Builder(this)
+                .addApi(Wearable.API)
+                .addConnectionCallbacks(this)
+                .addOnConnectionFailedListener(this)
+                .build();
+    }
+    @Override
+    protected void onStart() {
+        super.onStart();
+        if (! resolvingError) {
+            googleApiClient.connect();
+        }
     }
 
     @Override
@@ -136,21 +192,32 @@ public class MainActivity extends FragmentActivity {
 
         int mask = ContentResolver.SYNC_OBSERVER_TYPE_PENDING | ContentResolver.SYNC_OBSERVER_TYPE_ACTIVE | ContentResolver.SYNC_OBSERVER_TYPE_SETTINGS;
         syncStatusObserverHandle = ContentResolver.addStatusChangeListener(mask, syncStatusObserver);
+
+        registerReceiver(authFailedBroadcastReceiver, new IntentFilter(AUTH_FAILED_ACTION));
     }
 
     @Override
     protected void onPause() {
         Log.d(TAG, "onPause()");
-        super.onPause();
         if (syncStatusObserverHandle != null) {
             ContentResolver.removeStatusChangeListener(syncStatusObserverHandle);
             syncStatusObserverHandle = null;
         }
+
+        unregisterReceiver(authFailedBroadcastReceiver);
+
+        super.onPause();
     }
 
     @Override
     protected void onStop() {
         Log.d(TAG, "onStop()");
+        if (! resolvingError) {
+            Wearable.DataApi.removeListener(googleApiClient, this);
+            Wearable.MessageApi.removeListener(googleApiClient, this);
+            Wearable.NodeApi.removeListener(googleApiClient, this);
+            googleApiClient.disconnect();
+        }
         super.onStop();
     }
 
@@ -275,6 +342,137 @@ public class MainActivity extends FragmentActivity {
             return accounts[0];
         } else {
             Log.d(TAG, "no accounts found");
+            return null;
+        }
+    }
+
+    @Override
+    public void onConnected(Bundle bundle) {
+        Log.d(TAG, "onConnected(" + bundle + ")");
+
+        resolvingError = false;
+        Wearable.DataApi.addListener(googleApiClient, this);
+        Wearable.MessageApi.addListener(googleApiClient, this);
+        Wearable.NodeApi.addListener(googleApiClient, this);
+
+        PendingResult<NodeApi.GetLocalNodeResult> getLocalNodeResultPendingResult = Wearable.NodeApi.getLocalNode(googleApiClient);
+
+        getLocalNodeResultPendingResult.setResultCallback(new ResultCallback<NodeApi.GetLocalNodeResult>() {
+            @Override
+            public void onResult(NodeApi.GetLocalNodeResult getLocalNodeResult) {
+                Toast.makeText(MainActivity.this, "local node display name: " + getLocalNodeResult.getNode().getDisplayName(), Toast.LENGTH_LONG).show();
+            }
+        });
+
+        PendingResult<NodeApi.GetConnectedNodesResult> getConnectedNodesResultPendingResult = Wearable.NodeApi.getConnectedNodes(googleApiClient);
+
+        getConnectedNodesResultPendingResult.setResultCallback(new ResultCallback<NodeApi.GetConnectedNodesResult>() {
+            @Override
+            public void onResult(NodeApi.GetConnectedNodesResult getConnectedNodesResult) {
+                int numberOfNodes = 0;
+                for (Node node : getConnectedNodesResult.getNodes()) {
+                    numberOfNodes++;
+                    Log.d(TAG, "connected node: " + node.getDisplayName());
+                }
+
+                if (numberOfNodes == 0) {
+                    Log.d(TAG, "no nodes connected");
+                    Toast.makeText(MainActivity.this, "no nodes connected", Toast.LENGTH_LONG).show();
+                }
+            }
+        });
+    }
+
+    @Override
+    public void onConnectionSuspended(int cause) {
+        Log.d(TAG, "onConnectionSuspended(" + cause + ")");
+    }
+
+    @Override
+    public void onDataChanged(DataEventBuffer dataEvents) {
+        Log.d(TAG, "onDataChanged(" + dataEvents + ")");
+    }
+
+    @Override
+    public void onMessageReceived(MessageEvent messageEvent) {
+        Log.d(TAG, "onMessageReceived(" + messageEvent + ")");
+    }
+
+    @Override
+    public void onPeerConnected(Node node) {
+        Log.d(TAG, "onPeerConnected(" + node + ")");
+    }
+
+    @Override
+    public void onPeerDisconnected(Node node) {
+        Log.d(TAG, "onPeerDisconnected(" + node + ")");
+    }
+
+    @Override
+    public void onConnectionFailed(ConnectionResult connectionResult) {
+        Log.d(TAG, "onConnectionFailed(" + connectionResult + ")");
+        if (resolvingError) {
+            // Already attempting to resolve an error.
+            //noinspection UnnecessaryReturnStatement
+            return;
+        } else if (connectionResult.hasResolution()) {
+            try {
+                resolvingError = true;
+                connectionResult.startResolutionForResult(this, REQUEST_RESOLVE_ERROR);
+            } catch (IntentSender.SendIntentException e) {
+                // There was an error with the resolution intent. Try again.
+                googleApiClient.connect();
+            }
+        } else {
+            Log.e(TAG, "Connection to Google API client has failed");
+            resolvingError = false;
+            Wearable.DataApi.removeListener(googleApiClient, this);
+            Wearable.MessageApi.removeListener(googleApiClient, this);
+            Wearable.NodeApi.removeListener(googleApiClient, this);
+        }
+
+    }
+
+    public void startWearableActivity(View view) {
+        Log.d(TAG, "startWearableActivity()");
+        new StartWearableActivityTask().execute();
+    }
+
+    private Collection<String> getNodes() {
+        HashSet<String> results = new HashSet<String>();
+        NodeApi.GetConnectedNodesResult nodes = Wearable.NodeApi.getConnectedNodes(googleApiClient).await();
+
+        for (Node node : nodes.getNodes()) {
+            results.add(node.getId());
+        }
+
+        return results;
+    }
+
+    private void sendStartActivityMessage(String node) {
+        Log.d(TAG, "sendStartActivityMessage(" + node + ")");
+        Wearable.MessageApi.sendMessage(googleApiClient, node, START_ACTIVITY_PATH, new byte[0]).setResultCallback(
+                new ResultCallback<MessageApi.SendMessageResult>() {
+                    @Override
+                    public void onResult(MessageApi.SendMessageResult sendMessageResult) {
+                        Log.d(TAG, "sendStartActivityMessage() result: " + sendMessageResult.getStatus().toString());
+                        if (!sendMessageResult.getStatus().isSuccess()) {
+                            Log.e(TAG, "Failed to send message with status code: " + sendMessageResult.getStatus().getStatusCode());
+                        }
+                    }
+                }
+        );
+    }
+
+    private class StartWearableActivityTask extends AsyncTask<Void, Void, Void> {
+        private static final String TAG = "StartWearableActivityTask";
+        @Override
+        protected Void doInBackground(Void... args) {
+            Log.d(TAG, "doInBackground()");
+            Collection<String> nodes = getNodes();
+            for (String node : nodes) {
+                sendStartActivityMessage(node);
+            }
             return null;
         }
     }

@@ -2,7 +2,8 @@
 <resources>
 
     <string name="app_name">BankAccountPOC</string>
-    <string name="hello_round">Hello Round World!</string>
-    <string name="hello_square">Hello Square World!</string>
+    <string name="hello_round">Say Command</string>
+    <string name="hello_square">Say Command</string>
+    <string name="command_button_label">Voice Command</string>
 
 </resources>

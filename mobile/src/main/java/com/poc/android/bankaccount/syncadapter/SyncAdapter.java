@@ -10,6 +10,7 @@ import android.content.ContentProviderClient;
 import android.content.ContentResolver;
 import android.content.ContentValues;
 import android.content.Context;
+import android.content.Intent;
 import android.content.SyncResult;
 import android.os.Bundle;
 import android.os.RemoteException;
@@ -40,17 +41,21 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 
 import static com.poc.android.bankaccount.authentication.Authenticator.ACCESS_AUTH_TOKEN_TYPE;
+import static com.poc.android.bankaccount.authentication.Authenticator.ACCOUNT_NAME_EXTRA;
+import static com.poc.android.bankaccount.authentication.Authenticator.AUTH_FAILED_ACTION;
 
 public class SyncAdapter extends AbstractThreadedSyncAdapter {
     private static final String TAG = "SyncAdapter";
 
     @SuppressWarnings("UnusedDeclaration")
     private ContentResolver contentResolver;
+    private Context context;
 
     public SyncAdapter(Context context, boolean autoInitialize) {
         super(context, autoInitialize);
 
         contentResolver = context.getContentResolver();
+        this.context = context;
     }
 
     @SuppressWarnings("UnusedDeclaration")
@@ -58,6 +63,7 @@ public class SyncAdapter extends AbstractThreadedSyncAdapter {
         super(context, autoInitialize, allowParallelSyncs);
 
         contentResolver = context.getContentResolver();
+        this.context = context;
     }
 
     @Override
@@ -104,6 +110,12 @@ public class SyncAdapter extends AbstractThreadedSyncAdapter {
             // invalidate auth token
             accountManager.invalidateAuthToken(Authenticator.ACCOUNT_TYPE, authToken);
             syncResult.stats.numAuthExceptions++;
+
+            //broadcast auth failure
+            Intent intent = new Intent(AUTH_FAILED_ACTION);
+            intent.putExtra(ACCOUNT_NAME_EXTRA, account.name);
+            context.sendBroadcast(intent);
+
             return;
         }
 
