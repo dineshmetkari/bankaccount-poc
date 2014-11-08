@@ -8,14 +8,6 @@
     android:paddingBottom="@dimen/activity_vertical_margin"
     tools:context=".MainActivity$PlaceholderFragment">
 
-    <Button
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="@string/login_button_label"
-        android:id="@+id/signoff_button"
-        android:onClick="signOff"
-        android:layout_centerHorizontal="true"
-        android:layout_marginTop="224dp"/>
 
     <Button
         android:layout_width="wrap_content"
@@ -23,34 +15,54 @@
         android:text="@string/balance_button_label"
         android:id="@+id/balance_button"
         android:onClick="getBalance"
-        android:layout_marginBottom="52dp"
-        android:layout_alignBottom="@+id/signoff_button"
+        android:layout_marginBottom="5dp"
+        android:layout_centerHorizontal="true"
+        android:layout_centerVertical="true"/>
+
+    <Button
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="@string/login_button_label"
+        android:id="@+id/signoff_button"
+        android:onClick="signOff"
+        android:layout_centerHorizontal="true"
+        android:layout_below="@+id/balance_button"
+        android:layout_marginBottom="5dp"/>
+
+    <Button
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="@string/start_watch_app"
+        android:id="@+id/start_watch_app_button"
+        android:onClick="startWearableActivity"
+        android:layout_below="@+id/signoff_button"
         android:layout_centerHorizontal="true"/>
 
-<LinearLayout
-    android:layout_width="match_parent"
-    android:layout_height="wrap_content"
-    android:layout_above="@+id/balance_button"
-    android:layout_alignParentLeft="true"
-    android:layout_alignParentStart="true"
-    android:id="@+id/balanceLayout"
-    android:gravity="center_horizontal"
-    android:paddingBottom="10dp"
-    android:visibility="gone">
-    <TextView
-        android:layout_width="wrap_content"
+    <LinearLayout
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:textAppearance="?android:attr/textAppearanceLarge"
-        android:text="@string/balance_label"
-        android:id="@+id/textView"
-        android:paddingRight="10dp"/>
+        android:layout_above="@+id/balance_button"
+        android:layout_alignParentLeft="true"
+        android:layout_alignParentStart="true"
+        android:id="@+id/balanceLayout"
+        android:gravity="center_horizontal"
+        android:paddingBottom="10dp"
+        android:visibility="gone">
 
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:textAppearance="?android:attr/textAppearanceLarge"
-        android:id="@+id/balanceTextView"/>
-</LinearLayout>
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textAppearance="?android:attr/textAppearanceLarge"
+            android:text="@string/balance_label"
+            android:id="@+id/textView"
+            android:paddingRight="10dp"/>
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textAppearance="?android:attr/textAppearanceLarge"
+            android:id="@+id/balanceTextView"/>
+    </LinearLayout>
 
     <LinearLayout
         android:layout_width="match_parent"
@@ -75,5 +87,7 @@
         android:textAppearance="?android:attr/textAppearanceLarge"
         android:id="@+id/accountTextView"/>
 </LinearLayout>
+
+
 
 </RelativeLayout>
