@@ -46,6 +46,8 @@ public class Authenticator extends AbstractAccountAuthenticator {
     public static final String ACCESS_AUTH_TOKEN_TYPE = "access";
     public static final String REFRESH_AUTH_TOKEN_TYPE = "refresh";
     public static final String ACCOUNT_TYPE = "com.poc.android.bankaccount";
+    public static final String AUTH_FAILED_ACTION = "auth_failed_action";
+    public static final String ACCOUNT_NAME_EXTRA = "account_name_extra";
 
     private Context context;
 

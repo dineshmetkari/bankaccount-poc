@@ -10,5 +10,6 @@
     <string name="balance_button_label">Get Balance</string>
     <string name="account_label">Account:</string>
     <string name="balance_label">Balance:</string>
+    <string name="start_watch_app">Start Watch App</string>
 
 </resources>

@@ -1,4 +1,4 @@
-package com.poc.android.bankaccount.bankaccountpoc;
+package com.poc.android.bankaccount;
 
 import android.app.Application;
 import android.test.ApplicationTestCase;
