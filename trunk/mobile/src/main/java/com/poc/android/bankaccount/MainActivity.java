@@ -67,6 +67,7 @@ public class MainActivity extends FragmentActivity implements DataApi.DataListen
     /** Request code for launching the Intent to resolve Google Play services errors. */
     private static final int REQUEST_RESOLVE_ERROR = 1000;
     public static final String START_ACTIVITY_PATH = "/start-activity";
+    private static final String GET_BALANCE_PATH = "/get-account-balance";
 
     private AccountContentObserver accountContentObserver;
     private SyncStatusObserver syncStatusObserver;
@@ -396,6 +397,9 @@ public class MainActivity extends FragmentActivity implements DataApi.DataListen
     @Override
     public void onMessageReceived(MessageEvent messageEvent) {
         Log.d(TAG, "onMessageReceived(" + messageEvent + ")");
+        if (messageEvent.getPath().equals(GET_BALANCE_PATH)) {
+            Log.d(TAG, "incoming get balance request");
+        }
     }
 
     @Override

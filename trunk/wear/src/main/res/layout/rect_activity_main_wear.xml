@@ -6,7 +6,9 @@
     android:orientation="vertical"
     tools:context=".MainWearActivity"
     tools:deviceIds="wear_square"
-    android:gravity="center">
+    android:gravity="center"
+    android:background="@drawable/ic_launcher"
+    >
 
     <TextView
         android:id="@+id/accountTextView"
@@ -28,6 +30,6 @@
         android:text="@string/command_button_label"
         android:id="@+id/button"
         android:onClick="displaySpeechRecognizer"
-        android:layout_gravity="center_horizontal"/>
+        />
 
 </LinearLayout>
