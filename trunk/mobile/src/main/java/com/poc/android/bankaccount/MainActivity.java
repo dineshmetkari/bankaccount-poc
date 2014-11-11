@@ -38,23 +38,28 @@ import com.google.android.gms.wearable.MessageApi;
 import com.google.android.gms.wearable.MessageEvent;
 import com.google.android.gms.wearable.Node;
 import com.google.android.gms.wearable.NodeApi;
+import com.google.android.gms.wearable.PutDataRequest;
 import com.google.android.gms.wearable.Wearable;
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
 import com.poc.android.bankaccount.contentprovider.AccountContentObserver;
 import com.poc.android.bankaccount.contentprovider.AccountListener;
-import com.poc.android.bankaccount.model.BankAccount;
+import com.poc.android.bankaccount.library.model.BankAccount;
 import com.poc.android.bankaccount.syncadapter.SyncStatusObserverImpl;
 
+import java.nio.charset.StandardCharsets;
 import java.text.NumberFormat;
 import java.util.Collection;
 import java.util.HashSet;
+import java.util.concurrent.TimeUnit;
 
 import static com.poc.android.bankaccount.authentication.Authenticator.ACCESS_AUTH_TOKEN_TYPE;
 import static com.poc.android.bankaccount.authentication.Authenticator.ACCOUNT_NAME_EXTRA;
 import static com.poc.android.bankaccount.authentication.Authenticator.ACCOUNT_TYPE;
 import static com.poc.android.bankaccount.authentication.Authenticator.AUTH_FAILED_ACTION;
-import static com.poc.android.bankaccount.contentprovider.AccountContentProvider.ACCOUNTS_CONTENT_URI;
-import static com.poc.android.bankaccount.contentprovider.AccountContentProvider.ACCOUNT_ALL_FIELDS;
-import static com.poc.android.bankaccount.contentprovider.AccountContentProvider.AUTHORITY;
+import static com.poc.android.bankaccount.library.contentprovider.AccountContentProvider.ACCOUNTS_CONTENT_URI;
+import static com.poc.android.bankaccount.library.contentprovider.AccountContentProvider.ACCOUNT_ALL_FIELDS;
+import static com.poc.android.bankaccount.library.contentprovider.AccountContentProvider.AUTHORITY;
 
 
 public class MainActivity extends FragmentActivity implements DataApi.DataListener,
@@ -68,8 +73,10 @@ public class MainActivity extends FragmentActivity implements DataApi.DataListen
     private static final int REQUEST_RESOLVE_ERROR = 1000;
     public static final String START_ACTIVITY_PATH = "/start-activity";
     private static final String GET_BALANCE_PATH = "/get-account-balance";
+    private static final String AUTH_REQUIRED_PATH = "/auth-required";
 
     private AccountContentObserver accountContentObserver;
+    private AccountContentObserver wearableAccountObserver;
     private SyncStatusObserver syncStatusObserver;
     private Object syncStatusObserverHandle;
     private PlaceholderFragment fragment = new PlaceholderFragment();
@@ -151,8 +158,10 @@ public class MainActivity extends FragmentActivity implements DataApi.DataListen
         syncStatusObserver = new SyncStatusObserverImpl();
 
         accountContentObserver = new AccountContentObserver(null, fragment);
+        wearableAccountObserver = new AccountContentObserver(null, new WearableAccountListener());
 
         getContentResolver().registerContentObserver(ACCOUNTS_CONTENT_URI, true, accountContentObserver);
+        getContentResolver().registerContentObserver(ACCOUNTS_CONTENT_URI, true, wearableAccountObserver);
 
         AccountManager accountManager = AccountManager.get(this);
 
@@ -228,6 +237,7 @@ public class MainActivity extends FragmentActivity implements DataApi.DataListen
         AccountManager accountManager = AccountManager.get(this);
         accountManager.removeOnAccountsUpdatedListener(onAccountsUpdateListener);
         getContentResolver().unregisterContentObserver(accountContentObserver);
+        getContentResolver().unregisterContentObserver(wearableAccountObserver);
     }
 
     @Override
@@ -269,8 +279,8 @@ public class MainActivity extends FragmentActivity implements DataApi.DataListen
     }
 
     @TargetApi(Build.VERSION_CODES.KITKAT)
-    public void getBalance(View view) {
-        Log.d(TAG, "in getBalance()");
+    public void getBalanceButton(View view) {
+        Log.d(TAG, "in getBalanceButton()");
 
         fragment.hideAccount();
 
@@ -328,6 +338,24 @@ public class MainActivity extends FragmentActivity implements DataApi.DataListen
             };
 
             accountManager.addAccount(ACCOUNT_TYPE, ACCESS_AUTH_TOKEN_TYPE, new String[]{}, null, this, callback, null);
+        }
+    }
+
+    private void getBalanceWearable() {
+        Log.d(TAG, "getBalanceWearable()");
+
+        AccountManager accountManager = AccountManager.get(this);
+
+        Account account = getAccount();
+
+        if (account == null || accountManager.peekAuthToken(account, ACCESS_AUTH_TOKEN_TYPE) == null) {
+            new SendAuthRequiredMessageTask().execute();
+        } else {
+            Bundle settingsBundle = new Bundle();
+            settingsBundle.putBoolean(ContentResolver.SYNC_EXTRAS_MANUAL, true);
+            settingsBundle.putBoolean(ContentResolver.SYNC_EXTRAS_EXPEDITED, true);
+
+            ContentResolver.requestSync(account, AUTHORITY, settingsBundle);
         }
     }
 
@@ -399,6 +427,7 @@ public class MainActivity extends FragmentActivity implements DataApi.DataListen
         Log.d(TAG, "onMessageReceived(" + messageEvent + ")");
         if (messageEvent.getPath().equals(GET_BALANCE_PATH)) {
             Log.d(TAG, "incoming get balance request");
+            getBalanceWearable();
         }
     }
 
@@ -481,6 +510,34 @@ public class MainActivity extends FragmentActivity implements DataApi.DataListen
         }
     }
 
+    private void sendAuthRequiredMessage(String node) {
+        Log.d(TAG, "sendAuthRequiredMessage(" + node + ")");
+        Wearable.MessageApi.sendMessage(googleApiClient, node, AUTH_REQUIRED_PATH, new byte[0]).setResultCallback(
+                new ResultCallback<MessageApi.SendMessageResult>() {
+                    @Override
+                    public void onResult(MessageApi.SendMessageResult sendMessageResult) {
+                        Log.d(TAG, "sendAuthRequiredMessage() result: " + sendMessageResult.getStatus().toString());
+                        if (!sendMessageResult.getStatus().isSuccess()) {
+                            Log.e(TAG, "Failed to send message with status code: " + sendMessageResult.getStatus().getStatusCode());
+                        }
+                    }
+                }
+        );
+    }
+
+    private class SendAuthRequiredMessageTask extends AsyncTask<Void, Void, Void> {
+        private static final String TAG = "SendAuthRequiredMessageTask";
+        @Override
+        protected Void doInBackground(Void... args) {
+            Log.d(TAG, "doInBackground()");
+            Collection<String> nodes = getNodes();
+            for (String node : nodes) {
+                sendAuthRequiredMessage(node);
+            }
+            return null;
+        }
+    }
+
     /**
      * A placeholder fragment containing a simple view.
      */
@@ -537,6 +594,71 @@ public class MainActivity extends FragmentActivity implements DataApi.DataListen
         public void hideAccount() {
             balanceLayout.setVisibility(View.INVISIBLE);
             accountNameLayout.setVisibility(View.INVISIBLE);
+        }
+    }
+
+    public static class WearableAccountListener implements AccountListener, GoogleApiClient.ConnectionCallbacks,
+            GoogleApiClient.OnConnectionFailedListener {
+        private static final String TAG = "WearableAccountListener";
+
+        private static final String ACCOUNT_DATA_PATH = "/account";
+
+        private GoogleApiClient googleApiClient;
+
+        @Override
+        public void update() {
+            Log.d(TAG, "update()");
+            googleApiClient = new GoogleApiClient.Builder(App.context)
+                    .addApi(Wearable.API)
+                    .addConnectionCallbacks(this)
+                    .addOnConnectionFailedListener(this)
+                    .build();
+
+            ConnectionResult connectionResult = googleApiClient.blockingConnect(30, TimeUnit.SECONDS);
+
+            if (!connectionResult.isSuccess()) {
+                Log.d(TAG, "failed to connect to googleApiClient: " + connectionResult.toString());
+                return;
+            }
+
+            Cursor cursor = App.context.getContentResolver().query(ACCOUNTS_CONTENT_URI, ACCOUNT_ALL_FIELDS, null, new String[]{}, null);
+            BankAccount bankAccount = BankAccount.cursorToBankAccount(cursor);
+            cursor.close();
+
+            GsonBuilder builder = new GsonBuilder();
+            builder.excludeFieldsWithoutExposeAnnotation();
+            Gson gson = builder.create();
+            String accountJson = gson.toJson(bankAccount);
+
+            PutDataRequest putDataRequest = PutDataRequest.create(ACCOUNT_DATA_PATH);
+            putDataRequest.setData(accountJson.getBytes(StandardCharsets.UTF_8));
+            PendingResult<DataApi.DataItemResult> dataItemResultPendingResult = Wearable.DataApi.putDataItem(googleApiClient, putDataRequest);
+
+            dataItemResultPendingResult.setResultCallback(new ResultCallback<DataApi.DataItemResult>() {
+                @Override
+                public void onResult(DataApi.DataItemResult dataItemResult) {
+                    Log.d(TAG, "DataApi.DataItemResult." + dataItemResult.toString());
+                    if (! dataItemResult.getStatus().isSuccess()) {
+                        Log.d(TAG, "putDataItem() failed:" + dataItemResult.getStatus().getStatusMessage());
+                    }
+                }
+            });
+        }
+
+        @Override
+        public void onConnected(Bundle bundle) {
+            Log.d(TAG, "onConnected()");
+        }
+
+        @Override
+        public void onConnectionSuspended(int cause) {
+            Log.d(TAG, "onConnectionSuspended(" + cause + ")");
+        }
+
+        @Override
+        public void onConnectionFailed(ConnectionResult connectionResult) {
+            Log.d(TAG, "onConnectionFailed(" + connectionResult + ")");
+
         }
     }
 }

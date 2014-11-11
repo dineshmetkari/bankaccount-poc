@@ -1,42 +1,38 @@
 package com.poc.android.bankaccount.service;
 
+import android.app.Notification;
 import android.content.Intent;
-import android.net.Uri;
+import android.graphics.Bitmap;
 import android.os.Bundle;
+import android.support.v4.app.NotificationCompat;
+import android.support.v4.app.NotificationManagerCompat;
 import android.util.Log;
+import android.view.Gravity;
 
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.api.GoogleApiClient;
-import com.google.android.gms.common.data.FreezableUtils;
 import com.google.android.gms.wearable.DataEvent;
 import com.google.android.gms.wearable.DataEventBuffer;
 import com.google.android.gms.wearable.MessageEvent;
 import com.google.android.gms.wearable.Node;
-import com.google.android.gms.wearable.Wearable;
 import com.google.android.gms.wearable.WearableListenerService;
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
 import com.poc.android.bankaccount.MainWearActivity;
+import com.poc.android.bankaccount.R;
+import com.poc.android.bankaccount.library.model.BankAccount;
 
-import java.util.List;
-import java.util.concurrent.TimeUnit;
+import java.nio.charset.StandardCharsets;
+import java.text.NumberFormat;
 
 public class DataLayerListenerService extends WearableListenerService implements GoogleApiClient.ConnectionCallbacks, GoogleApiClient.OnConnectionFailedListener {
     private static final String TAG = "DataLayerListenerService";
     private static final String START_ACTIVITY_PATH = "/start-activity";
-    private static final String COUNT_PATH = "/count";
-    private static final String DATA_ITEM_RECEIVED_PATH = "/data-item-relieved";
-
-    private GoogleApiClient googleApiClient;
 
     @Override
     public void onCreate() {
         Log.d(TAG, "onCreate()");
         super.onCreate();
-        googleApiClient = new GoogleApiClient.Builder(this)
-                .addApi(Wearable.API)
-                .addConnectionCallbacks(this)
-                .addOnConnectionFailedListener(this)
-                .build();
-        googleApiClient.connect();
     }
 
     @Override
@@ -48,29 +44,53 @@ public class DataLayerListenerService extends WearableListenerService implements
     @Override
     public void onDataChanged(DataEventBuffer dataEvents) {
         Log.d(TAG, "onDataChanged(" + dataEvents + ")");
-        final List<DataEvent> events = FreezableUtils.freezeIterable(dataEvents);
-        dataEvents.close();
-        if(! googleApiClient.isConnected()) {
-            ConnectionResult connectionResult = googleApiClient.blockingConnect(30, TimeUnit.SECONDS);
-            if (!connectionResult.isSuccess()) {
-                Log.e(TAG, "DataLayerListenerService failed to connect to GoogleApiClient.");
-                return;
+
+        Bitmap image = Bitmap.createBitmap(400, 400, Bitmap.Config.ARGB_8888);
+        image.eraseColor(getResources().getColor(R.color.watch_background));
+
+        NotificationCompat.WearableExtender wearableExtender = new NotificationCompat.WearableExtender();
+        wearableExtender.setBackground(image)
+                .setGravity(Gravity.CENTER_VERTICAL);
+
+        Notification notification = null;
+
+        for (DataEvent event : dataEvents) {
+            Log.d(TAG, "data event uri:" + event.getDataItem().getUri());
+            Log.d(TAG, "data event data: " + new String(event.getDataItem().getData(), StandardCharsets.UTF_8));
+
+            NotificationCompat.Builder notificationBuilder = new NotificationCompat.Builder(getApplicationContext())
+                    .setSmallIcon(R.drawable.ic_launcher)
+                    .setPriority(1)
+                    .extend(wearableExtender);
+
+            if (event.getDataItem().getUri().getLastPathSegment().endsWith("account")) {
+                GsonBuilder builder = new GsonBuilder();
+                builder.excludeFieldsWithoutExposeAnnotation();
+                Gson gson = builder.create();
+
+                BankAccount bankAccount = gson.fromJson(new String(event.getDataItem().getData(), StandardCharsets.UTF_8), BankAccount.class);
+                Log.d(TAG, "BankAccount = " + bankAccount);
+
+                NumberFormat numberFormat = NumberFormat.getCurrencyInstance();
+
+                double amount = bankAccount.getBalance();
+                amount = amount / 100;
+
+                notificationBuilder.setContentTitle("Account Balance")
+                        .setContentText("Account " + bankAccount.getName() + " has a balance of " + numberFormat.format(amount));
+
+                notification = notificationBuilder.build();
+            } else  if (event.getDataItem().getUri().getLastPathSegment().endsWith("auth-required")) {
+                notificationBuilder.setContentTitle("Login Required")
+                        .setContentText("Please Login on Handheld Device");
+
+                notification = notificationBuilder.build();
             }
-        }
 
-        // Loop through the events and send a message back to the node that created the data item.
-        for (DataEvent event : events) {
-            Uri uri = event.getDataItem().getUri();
-            String path = uri.getPath();
-            if (COUNT_PATH.equals(path)) {
-                // Get the node id of the node that created the data item from the host portion of
-                // the uri.
-                String nodeId = uri.getHost();
-                // Set the data of the message to be the bytes of the Uri.
-                byte[] payload = uri.toString().getBytes();
 
-                // Send the rpc
-                Wearable.MessageApi.sendMessage(googleApiClient, nodeId, DATA_ITEM_RECEIVED_PATH, payload);
+            if (notification != null) {
+                NotificationManagerCompat notificationManager = NotificationManagerCompat.from(getApplicationContext());
+                notificationManager.notify(0, notification);
             }
         }
     }

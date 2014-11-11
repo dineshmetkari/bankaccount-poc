@@ -14,7 +14,7 @@
         android:layout_height="wrap_content"
         android:text="@string/balance_button_label"
         android:id="@+id/balance_button"
-        android:onClick="getBalance"
+        android:onClick="getBalanceButton"
         android:layout_marginBottom="5dp"
         android:layout_centerHorizontal="true"
         android:layout_centerVertical="true"/>

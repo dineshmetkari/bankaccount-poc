@@ -4,6 +4,8 @@
     <string name="app_name">Wells Fargo</string>
     <string name="hello_round">Say Command</string>
     <string name="hello_square">Say Command</string>
-    <string name="command_button_label">Voice Command</string>
+    <string name="command_button_label">Get Balance</string>
+    <string name="balance_placeholder">Balance: $14,345.00</string>
+    <string name="account_placeholder">Account: CHK-3456</string>
 
 </resources>

@@ -1,12 +1,9 @@
-package com.poc.android.bankaccount.model;
+package com.poc.android.bankaccount.library.model;
 
 import android.database.Cursor;
 
 import com.google.gson.annotations.Expose;
-
-import static com.poc.android.bankaccount.contentprovider.AccountContentProvider.ACCOUNT_FIELD_BALANCE;
-import static com.poc.android.bankaccount.contentprovider.AccountContentProvider.ACCOUNT_FIELD_ID;
-import static com.poc.android.bankaccount.contentprovider.AccountContentProvider.ACCOUNT_FIELD_NAME;
+import com.poc.android.bankaccount.library.contentprovider.AccountContentProvider;
 
 @SuppressWarnings("UnusedDeclaration")
 public class BankAccount {
@@ -55,9 +52,9 @@ public class BankAccount {
 
         if (cursor != null && cursor.getCount() > 0) {
             cursor.moveToFirst();
-            bankAccount.setName(cursor.getString(cursor.getColumnIndex(ACCOUNT_FIELD_NAME)));
-            bankAccount.setId(cursor.getString(cursor.getColumnIndex(ACCOUNT_FIELD_ID)));
-            bankAccount.setBalance(cursor.getInt(cursor.getColumnIndex(ACCOUNT_FIELD_BALANCE)));
+            bankAccount.setName(cursor.getString(cursor.getColumnIndex(AccountContentProvider.ACCOUNT_FIELD_NAME)));
+            bankAccount.setId(cursor.getString(cursor.getColumnIndex(AccountContentProvider.ACCOUNT_FIELD_ID)));
+            bankAccount.setBalance(cursor.getInt(cursor.getColumnIndex(AccountContentProvider.ACCOUNT_FIELD_BALANCE)));
         }
 
         return bankAccount;

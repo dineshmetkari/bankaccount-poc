@@ -1,4 +1,4 @@
-package com.poc.android.bankaccount.contentprovider;
+package com.poc.android.bankaccount.library.contentprovider;
 
 import android.content.ContentProvider;
 import android.content.ContentValues;
@@ -8,7 +8,7 @@ import android.database.MatrixCursor;
 import android.net.Uri;
 import android.util.Log;
 
-import com.poc.android.bankaccount.model.BankAccount;
+import com.poc.android.bankaccount.library.model.BankAccount;
 
 import java.util.Arrays;
 
