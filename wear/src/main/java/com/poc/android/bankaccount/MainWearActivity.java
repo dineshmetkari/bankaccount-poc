@@ -11,6 +11,7 @@ import android.support.wearable.view.WatchViewStub;
 import android.util.Log;
 import android.view.View;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.api.GoogleApiClient;
@@ -36,10 +37,11 @@ public class MainWearActivity extends Activity implements GoogleApiClient.Connec
     private static final int SPEECH_REQUEST_CODE = 0;
     private static final String GET_BALANCE_PATH = "/get-account-balance";
 
-    private TextView textView;
     private boolean hasSpeechRecognizerRun = false;
     private SpeechRecognizer speechRecognizer;
     private GoogleApiClient googleApiClient;
+    @SuppressWarnings("UnusedDeclaration")
+    private TextView textView;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -131,6 +133,8 @@ public class MainWearActivity extends Activity implements GoogleApiClient.Connec
         intent.putExtra(RecognizerIntent.EXTRA_PROMPT, "Say Banking Command or Help for list of Commands");
         // Start the activity, the intent will be populated with the speech text
         startActivityForResult(intent, SPEECH_REQUEST_CODE);
+        Toast.makeText(MainWearActivity.this, "Speak Banking Voice Command", Toast.LENGTH_LONG).show();
+        Toast.makeText(MainWearActivity.this, "Example: \"Get Balance\"", Toast.LENGTH_LONG).show();
     }
 
     @SuppressWarnings("UnusedDeclaration")
@@ -156,11 +160,11 @@ public class MainWearActivity extends Activity implements GoogleApiClient.Connec
             List<String> results = data.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS);
             String spokenText = results.get(0);
 
-            textView.setText(spokenText);
-
             if (spokenText.contains("balance")) {
                 Log.d(TAG, "sending balance request");
                 new SendGetBalanceTask().execute();
+            } else {
+                Toast.makeText(MainWearActivity.this, "Unknown voice command: "  + spokenText, Toast.LENGTH_LONG).show();
             }
         }
         super.onActivityResult(requestCode, resultCode, data);

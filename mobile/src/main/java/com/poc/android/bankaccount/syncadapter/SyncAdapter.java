@@ -20,8 +20,8 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.poc.android.bankaccount.R;
 import com.poc.android.bankaccount.authentication.Authenticator;
-import com.poc.android.bankaccount.contentprovider.AccountContentProvider;
-import com.poc.android.bankaccount.model.BankAccount;
+import com.poc.android.bankaccount.library.contentprovider.AccountContentProvider;
+import com.poc.android.bankaccount.library.model.BankAccount;
 
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpResponse;
@@ -44,6 +44,7 @@ import static com.poc.android.bankaccount.authentication.Authenticator.ACCESS_AU
 import static com.poc.android.bankaccount.authentication.Authenticator.ACCOUNT_NAME_EXTRA;
 import static com.poc.android.bankaccount.authentication.Authenticator.AUTH_FAILED_ACTION;
 
+@SuppressWarnings("UnusedDeclaration")
 public class SyncAdapter extends AbstractThreadedSyncAdapter {
     private static final String TAG = "SyncAdapter";
 
@@ -181,14 +182,14 @@ public class SyncAdapter extends AbstractThreadedSyncAdapter {
             throw new IOException("Failed on accessing account: http status = " + statusCode);
         }
 
-        GsonBuilder builder = new GsonBuilder();
-        builder.excludeFieldsWithoutExposeAnnotation();
-        Gson gson = builder.create();
+            GsonBuilder builder = new GsonBuilder();
+            builder.excludeFieldsWithoutExposeAnnotation();
+            Gson gson = builder.create();
 
-        Log.d(TAG, "response: " + responseBuilder.toString());
+            Log.d(TAG, "response: " + responseBuilder.toString());
 
-        //noinspection UnnecessaryLocalVariable
-        BankAccount bankAccount = gson.fromJson(responseBuilder.toString(), BankAccount.class);
+            //noinspection UnnecessaryLocalVariable
+            BankAccount bankAccount = gson.fromJson(responseBuilder.toString(), BankAccount.class);
 
         return bankAccount;
     }
