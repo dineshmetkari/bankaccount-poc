@@ -151,6 +151,11 @@ public class MainWearActivity extends Activity implements GoogleApiClient.Connec
         speechRecognizer.startListening(intent);
     }
 
+    public void getBalance(View view) {
+        Log.d(TAG, "sending balance request");
+        new SendGetBalanceTask().execute();
+    }
+
     // This callback is invoked when the Speech Recognizer returns.
     // This is where you process the intent and extract the speech text from the intent.
     @Override
@@ -160,7 +165,7 @@ public class MainWearActivity extends Activity implements GoogleApiClient.Connec
             List<String> results = data.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS);
             String spokenText = results.get(0);
 
-            if (spokenText.contains("balance")) {
+            if (spokenText.toUpperCase().contains("BALANCE")) {
                 Log.d(TAG, "sending balance request");
                 new SendGetBalanceTask().execute();
             } else {
