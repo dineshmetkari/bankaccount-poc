@@ -1,7 +1,10 @@
 package com.poc.android.bankaccount;
 
 import android.app.Activity;
+import android.content.BroadcastReceiver;
+import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.speech.RecognitionListener;
@@ -10,6 +13,7 @@ import android.speech.SpeechRecognizer;
 import android.support.wearable.view.WatchViewStub;
 import android.util.Log;
 import android.view.View;
+import android.view.ViewGroup;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -23,11 +27,14 @@ import com.google.android.gms.wearable.MessageEvent;
 import com.google.android.gms.wearable.Node;
 import com.google.android.gms.wearable.NodeApi;
 import com.google.android.gms.wearable.Wearable;
+import com.poc.android.bankaccount.service.DataLayerListenerService;
 
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
+
+import static com.poc.android.bankaccount.service.DataLayerListenerService.ACCOUNT_BALANCE_ACTION;
 
 public class MainWearActivity extends Activity implements GoogleApiClient.ConnectionCallbacks,
         GoogleApiClient.OnConnectionFailedListener, DataApi.DataListener, MessageApi.MessageListener,
@@ -41,7 +48,25 @@ public class MainWearActivity extends Activity implements GoogleApiClient.Connec
     private SpeechRecognizer speechRecognizer;
     private GoogleApiClient googleApiClient;
     @SuppressWarnings("UnusedDeclaration")
-    private TextView textView;
+    private ViewGroup accountBalanceContainer;
+    private TextView accountNameTextView;
+    private TextView accountBalanceTextView;
+
+
+    private BroadcastReceiver accountBalanceBroadcastReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            String accountNamePrefix = getString(R.string.account_name_prefix);
+            String accountBalancePrefix = getString(R.string.account_balance_prefix);
+            String accountName = intent.getStringExtra(DataLayerListenerService.ACCOUNT_NAME_EXTRA);
+            String accountBalance = intent.getStringExtra(DataLayerListenerService.ACCOUNT_BALANCE_EXTRA);
+
+            accountNameTextView.setText(accountNamePrefix + accountName);
+            accountBalanceTextView.setText(accountBalancePrefix + accountBalance);
+
+            accountBalanceContainer.setVisibility(View.VISIBLE);
+        }
+    };
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -52,7 +77,9 @@ public class MainWearActivity extends Activity implements GoogleApiClient.Connec
         stub.setOnLayoutInflatedListener(new WatchViewStub.OnLayoutInflatedListener() {
             @Override
             public void onLayoutInflated(WatchViewStub stub) {
-                textView = (TextView) stub.findViewById(R.id.accountTextView);
+                accountBalanceContainer = (ViewGroup) stub.findViewById(R.id.balance_container);
+                accountNameTextView = (TextView) stub.findViewById(R.id.accountTextView);
+                accountBalanceTextView = (TextView) stub.findViewById(R.id.balanceTextView);
             }
         });
 
@@ -77,6 +104,14 @@ public class MainWearActivity extends Activity implements GoogleApiClient.Connec
     protected void onResume() {
         Log.d(TAG, "onResume()");
         super.onResume();
+
+        registerReceiver(accountBalanceBroadcastReceiver, new IntentFilter(ACCOUNT_BALANCE_ACTION));
+    }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+        unregisterReceiver(accountBalanceBroadcastReceiver);
     }
 
     @Override
