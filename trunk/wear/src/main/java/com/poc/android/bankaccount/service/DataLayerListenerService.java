@@ -29,6 +29,10 @@ public class DataLayerListenerService extends WearableListenerService implements
     private static final String TAG = "DataLayerListenerService";
     private static final String START_ACTIVITY_PATH = "/start-activity";
 
+    public static final String ACCOUNT_BALANCE_ACTION = "account_balance_action";
+    public static final String ACCOUNT_NAME_EXTRA = "account_name_extra";
+    public static final String ACCOUNT_BALANCE_EXTRA = "account_balance_extra";
+
     @Override
     public void onCreate() {
         Log.d(TAG, "onCreate()");
@@ -39,6 +43,12 @@ public class DataLayerListenerService extends WearableListenerService implements
     public void onDestroy() {
         Log.d(TAG, "onCreate()");
         super.onDestroy();
+    }
+
+    @Override
+    public int onStartCommand(Intent intent, int flags, int startId) {
+        Log.d(TAG, "onStartCommand(" + intent + ", " + flags + ", " + startId + ")");
+        return super.onStartCommand(intent, flags, startId);
     }
 
     @Override
@@ -80,6 +90,13 @@ public class DataLayerListenerService extends WearableListenerService implements
                         .setContentText("Account " + bankAccount.getName() + " has a balance of " + numberFormat.format(amount));
 
                 notification = notificationBuilder.build();
+
+                //broadcast account info to activity
+                Intent intent = new Intent(ACCOUNT_BALANCE_ACTION);
+                intent.putExtra(ACCOUNT_NAME_EXTRA, bankAccount.getName());
+                intent.putExtra(ACCOUNT_BALANCE_EXTRA, numberFormat.format(amount));
+                sendBroadcast(intent);
+
             } else  if (event.getDataItem().getUri().getLastPathSegment().endsWith("auth-required")) {
                 notificationBuilder.setContentTitle("Login Required")
                         .setContentText("Please Login on Handheld Device");
