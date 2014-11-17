@@ -1,6 +1,7 @@
 package com.poc.android.bankaccount;
 
 import android.app.Activity;
+import android.app.ActivityManager;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
@@ -47,7 +48,6 @@ public class MainWearActivity extends Activity implements GoogleApiClient.Connec
     private boolean hasSpeechRecognizerRun = false;
     private SpeechRecognizer speechRecognizer;
     private GoogleApiClient googleApiClient;
-    @SuppressWarnings("UnusedDeclaration")
     private ViewGroup accountBalanceContainer;
     private TextView accountNameTextView;
     private TextView accountBalanceTextView;
@@ -67,6 +67,46 @@ public class MainWearActivity extends Activity implements GoogleApiClient.Connec
             accountBalanceContainer.setVisibility(View.VISIBLE);
         }
     };
+
+    private BroadcastReceiver authRequiredBroadcastReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            accountNameTextView.setText("");
+            accountBalanceTextView.setText("");
+
+            accountBalanceContainer.setVisibility(View.INVISIBLE);
+
+            String message = getString(R.string.auth_required_title) + ": " + getString(R.string.auth_required_text);
+
+            Toast.makeText(MainWearActivity.this, message, Toast.LENGTH_LONG).show();
+        }
+    };
+
+    public static String getTopActivity(Context context) {
+        List tasks = ((ActivityManager) context.getSystemService(Context.ACTIVITY_SERVICE)).getRunningTasks(1);
+
+        if (tasks.isEmpty()) {
+            return null;
+        } else {
+            ActivityManager.RunningTaskInfo taskInfo = (ActivityManager.RunningTaskInfo) tasks.get(0);
+            return taskInfo.topActivity.getPackageName();
+        }
+    }
+
+    public static boolean isMainActivityRunning(Context context) {
+        boolean isRunning = false;
+
+        List<ActivityManager.RunningTaskInfo> tasks = ((ActivityManager) context.getSystemService(Context.ACTIVITY_SERVICE)).getRunningTasks(Integer.MAX_VALUE);
+
+        for (ActivityManager.RunningTaskInfo info : tasks) {
+            if (info.topActivity.getPackageName().equalsIgnoreCase(context.getPackageName())) {
+                isRunning = true;
+                break;
+            }
+        }
+
+        return isRunning;
+    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -104,14 +144,20 @@ public class MainWearActivity extends Activity implements GoogleApiClient.Connec
     protected void onResume() {
         Log.d(TAG, "onResume()");
         super.onResume();
-
         registerReceiver(accountBalanceBroadcastReceiver, new IntentFilter(ACCOUNT_BALANCE_ACTION));
     }
 
     @Override
     protected void onPause() {
+        Log.d(TAG, "onPause()");
         super.onPause();
         unregisterReceiver(accountBalanceBroadcastReceiver);
+    }
+
+    @Override
+    protected void onNewIntent(Intent intent) {
+        Log.d(TAG, "onNewIntent(" + intent + ")");
+        super.onNewIntent(intent);
     }
 
     @Override

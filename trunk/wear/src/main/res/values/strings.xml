@@ -8,6 +8,8 @@
     <string name="balance_placeholder">Balance: $14,345.00</string>
     <string name="account_placeholder">Account: CHK-3456</string>
     <string name="account_name_prefix">"Account: "</string>
-    <string name="account_balance_prefix">Balance</string>
+    <string name="account_balance_prefix">"Balance: "</string>
+    <string name="auth_required_title">Authentication Required</string>
+    <string name="auth_required_text">Please login with you handheld device</string>
 
 </resources>
