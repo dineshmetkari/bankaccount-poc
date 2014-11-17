@@ -131,6 +131,8 @@ public class MainActivity extends FragmentActivity implements DataApi.DataListen
     private BroadcastReceiver authFailedBroadcastReceiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
+            new SendAuthRequiredMessageTask().execute();
+
             String accountName = intent.getStringExtra(ACCOUNT_NAME_EXTRA);
             Toast.makeText(MainActivity.this, "authentication failed for " + accountName, Toast.LENGTH_LONG).show();
             Account account = new Account(accountName, ACCOUNT_TYPE);
