@@ -60,6 +60,9 @@ import static com.poc.android.bankaccount.authentication.Authenticator.AUTH_FAIL
 import static com.poc.android.bankaccount.library.contentprovider.AccountContentProvider.ACCOUNTS_CONTENT_URI;
 import static com.poc.android.bankaccount.library.contentprovider.AccountContentProvider.ACCOUNT_ALL_FIELDS;
 import static com.poc.android.bankaccount.library.contentprovider.AccountContentProvider.AUTHORITY;
+import static com.poc.android.bankaccount.syncadapter.SyncAdapter.SYNC_REQUEST_SOURCE_EXTRA;
+import static com.poc.android.bankaccount.syncadapter.SyncAdapter.SYNC_REQUEST_SOURCE_HANDHELD;
+import static com.poc.android.bankaccount.syncadapter.SyncAdapter.SYNC_REQUEST_SOURCE_WEARABLE;
 
 
 public class MainActivity extends FragmentActivity implements DataApi.DataListener,
@@ -291,6 +294,7 @@ public class MainActivity extends FragmentActivity implements DataApi.DataListen
         final Bundle settingsBundle = new Bundle();
         settingsBundle.putBoolean(ContentResolver.SYNC_EXTRAS_MANUAL, true);
         settingsBundle.putBoolean(ContentResolver.SYNC_EXTRAS_EXPEDITED, true);
+        settingsBundle.putInt(SYNC_REQUEST_SOURCE_EXTRA, SYNC_REQUEST_SOURCE_HANDHELD);
 
         final AccountManager accountManager = AccountManager.get(this);
 
@@ -356,6 +360,7 @@ public class MainActivity extends FragmentActivity implements DataApi.DataListen
             Bundle settingsBundle = new Bundle();
             settingsBundle.putBoolean(ContentResolver.SYNC_EXTRAS_MANUAL, true);
             settingsBundle.putBoolean(ContentResolver.SYNC_EXTRAS_EXPEDITED, true);
+            settingsBundle.putInt(SYNC_REQUEST_SOURCE_EXTRA, SYNC_REQUEST_SOURCE_WEARABLE);
 
             ContentResolver.requestSync(account, AUTHORITY, settingsBundle);
         }

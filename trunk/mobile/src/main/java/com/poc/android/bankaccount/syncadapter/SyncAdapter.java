@@ -3,6 +3,8 @@ package com.poc.android.bankaccount.syncadapter;
 
 import android.accounts.Account;
 import android.accounts.AccountManager;
+import android.accounts.AccountManagerCallback;
+import android.accounts.AccountManagerFuture;
 import android.accounts.AuthenticatorException;
 import android.accounts.OperationCanceledException;
 import android.content.AbstractThreadedSyncAdapter;
@@ -40,6 +42,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 
+import static android.accounts.AccountManager.*;
 import static com.poc.android.bankaccount.authentication.Authenticator.ACCESS_AUTH_TOKEN_TYPE;
 import static com.poc.android.bankaccount.authentication.Authenticator.ACCOUNT_NAME_EXTRA;
 import static com.poc.android.bankaccount.authentication.Authenticator.AUTH_FAILED_ACTION;
@@ -48,7 +51,11 @@ import static com.poc.android.bankaccount.authentication.Authenticator.AUTH_FAIL
 public class SyncAdapter extends AbstractThreadedSyncAdapter {
     private static final String TAG = "SyncAdapter";
 
-    @SuppressWarnings("UnusedDeclaration")
+    public static final String SYNC_REQUEST_SOURCE_EXTRA = "sync-request-source-extra";
+    public static final int SYNC_REQUEST_SOURCE_UNSPECIFIED = 0;
+    public static final int SYNC_REQUEST_SOURCE_HANDHELD = 1;
+    public static final int SYNC_REQUEST_SOURCE_WEARABLE = 2;
+
     private ContentResolver contentResolver;
     private Context context;
 
@@ -71,12 +78,37 @@ public class SyncAdapter extends AbstractThreadedSyncAdapter {
     public void onPerformSync(Account account, Bundle extras, String authority, ContentProviderClient provider, SyncResult syncResult) {
         Log.d(TAG, "in onPerformSync()");
 
-        AccountManager accountManager = AccountManager.get(getContext());
+        switch (extras.getInt(SYNC_REQUEST_SOURCE_EXTRA)) {
+            case (SYNC_REQUEST_SOURCE_HANDHELD):
+                Log.d(TAG, "sync request from handheld");
+                break;
+            case (SYNC_REQUEST_SOURCE_WEARABLE):
+                Log.d(TAG, "sync request from wearable");
+                break;
+            case (SYNC_REQUEST_SOURCE_UNSPECIFIED):
+                Log.d(TAG, "sync request from unspecified");
+                break;
+            default:
+                Log.d(TAG, "sync request from unknown source: "  + extras.getInt(SYNC_REQUEST_SOURCE_EXTRA));
+        }
+
+        AccountManager accountManager = get(getContext());
 
         String authToken;
 
+        AccountManagerCallback<Bundle> getAuthTokenCallBack = new AccountManagerCallback<Bundle>() {
+            private static final String TAG = "SyncAdapter.getAuthTokenCallBack";
+            @Override
+            public void run(AccountManagerFuture<Bundle> future) {
+                Log.d(TAG, "run(" + future + ")");
+            }
+        };
+
+        AccountManagerFuture<Bundle> future = accountManager.getAuthToken(account, ACCESS_AUTH_TOKEN_TYPE, extras, true, getAuthTokenCallBack, null);
+
         try {
-            authToken = accountManager.blockingGetAuthToken(account, ACCESS_AUTH_TOKEN_TYPE, true);
+            Bundle result = future.getResult();
+            authToken = result.getString(KEY_AUTHTOKEN);
         } catch (OperationCanceledException e) {
             Log.e(TAG, "Sync operation cancelled:" + e.getMessage());
             return;

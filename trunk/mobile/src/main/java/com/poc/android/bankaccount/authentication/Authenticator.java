@@ -40,6 +40,10 @@ import static android.accounts.AccountManager.KEY_ACCOUNT_AUTHENTICATOR_RESPONSE
 import static android.accounts.AccountManager.KEY_AUTHTOKEN;
 import static android.accounts.AccountManager.KEY_INTENT;
 import static android.accounts.AccountManager.get;
+import static com.poc.android.bankaccount.syncadapter.SyncAdapter.SYNC_REQUEST_SOURCE_EXTRA;
+import static com.poc.android.bankaccount.syncadapter.SyncAdapter.SYNC_REQUEST_SOURCE_HANDHELD;
+import static com.poc.android.bankaccount.syncadapter.SyncAdapter.SYNC_REQUEST_SOURCE_UNSPECIFIED;
+import static com.poc.android.bankaccount.syncadapter.SyncAdapter.SYNC_REQUEST_SOURCE_WEARABLE;
 
 public class Authenticator extends AbstractAccountAuthenticator {
     private static final String TAG = "Authenticator";
@@ -85,8 +89,8 @@ public class Authenticator extends AbstractAccountAuthenticator {
     }
 
     /**
-     * getting here means the AccountManager auth token was null.  Most like set
-     * by someone who had access rejected using it. So here we will prompt the user to password
+     * getting here means the AccountManager auth token was null.  Most likely set to null
+     * by someone who had access rejected while using it. So here we will prompt the user to password
      * which will result in a new auth token
      *
      * @param response from AccountManager
@@ -100,6 +104,20 @@ public class Authenticator extends AbstractAccountAuthenticator {
     @Override
     public Bundle getAuthToken(AccountAuthenticatorResponse response, Account account, String authTokenType, Bundle options) throws NetworkErrorException {
         Log.d(TAG, "getAuthToken(" + response + ", " + account + ", " + authTokenType + ", " + options + ")");
+
+        switch (options.getInt(SYNC_REQUEST_SOURCE_EXTRA)) {
+            case (SYNC_REQUEST_SOURCE_HANDHELD):
+                Log.d(TAG, "getAuthToken from handheld");
+                break;
+            case (SYNC_REQUEST_SOURCE_WEARABLE):
+                Log.d(TAG, "getAuthToken from wearable");
+                break;
+            case (SYNC_REQUEST_SOURCE_UNSPECIFIED):
+                Log.d(TAG, "getAuthToken from unspecified");
+                break;
+            default:
+                Log.d(TAG, "getAuthToken from unknown source: "  + options.getInt(SYNC_REQUEST_SOURCE_EXTRA));
+        }
 
         Intent intent = new Intent(context, AuthenticateActivity.class);
         intent.putExtra(KEY_ACCOUNT_AUTHENTICATOR_RESPONSE, response);
