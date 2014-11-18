@@ -28,7 +28,6 @@ import com.google.android.gms.wearable.MessageEvent;
 import com.google.android.gms.wearable.Node;
 import com.google.android.gms.wearable.NodeApi;
 import com.google.android.gms.wearable.Wearable;
-import com.poc.android.bankaccount.service.DataLayerListenerService;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -36,6 +35,9 @@ import java.util.HashSet;
 import java.util.List;
 
 import static com.poc.android.bankaccount.service.DataLayerListenerService.ACCOUNT_BALANCE_ACTION;
+import static com.poc.android.bankaccount.service.DataLayerListenerService.ACCOUNT_BALANCE_EXTRA;
+import static com.poc.android.bankaccount.service.DataLayerListenerService.ACCOUNT_NAME_EXTRA;
+import static com.poc.android.bankaccount.service.DataLayerListenerService.AUTH_REQUIRED_ACTION;
 
 public class MainWearActivity extends Activity implements GoogleApiClient.ConnectionCallbacks,
         GoogleApiClient.OnConnectionFailedListener, DataApi.DataListener, MessageApi.MessageListener,
@@ -58,8 +60,8 @@ public class MainWearActivity extends Activity implements GoogleApiClient.Connec
         public void onReceive(Context context, Intent intent) {
             String accountNamePrefix = getString(R.string.account_name_prefix);
             String accountBalancePrefix = getString(R.string.account_balance_prefix);
-            String accountName = intent.getStringExtra(DataLayerListenerService.ACCOUNT_NAME_EXTRA);
-            String accountBalance = intent.getStringExtra(DataLayerListenerService.ACCOUNT_BALANCE_EXTRA);
+            String accountName = intent.getStringExtra(ACCOUNT_NAME_EXTRA);
+            String accountBalance = intent.getStringExtra(ACCOUNT_BALANCE_EXTRA);
 
             accountNameTextView.setText(accountNamePrefix + accountName);
             accountBalanceTextView.setText(accountBalancePrefix + accountBalance);
@@ -132,6 +134,9 @@ public class MainWearActivity extends Activity implements GoogleApiClient.Connec
 
         speechRecognizer = SpeechRecognizer.createSpeechRecognizer(this);
         speechRecognizer.setRecognitionListener(new SpeechRecognitionListener());
+
+        registerReceiver(accountBalanceBroadcastReceiver, new IntentFilter(ACCOUNT_BALANCE_ACTION));
+        registerReceiver(authRequiredBroadcastReceiver, new IntentFilter(AUTH_REQUIRED_ACTION));
     }
 
     @Override
@@ -144,14 +149,20 @@ public class MainWearActivity extends Activity implements GoogleApiClient.Connec
     protected void onResume() {
         Log.d(TAG, "onResume()");
         super.onResume();
-        registerReceiver(accountBalanceBroadcastReceiver, new IntentFilter(ACCOUNT_BALANCE_ACTION));
     }
 
     @Override
     protected void onPause() {
         Log.d(TAG, "onPause()");
         super.onPause();
+    }
+
+    @Override
+    protected void onDestroy() {
+        Log.d(TAG, "onDestroy()");
+        super.onDestroy();
         unregisterReceiver(accountBalanceBroadcastReceiver);
+        unregisterReceiver(authRequiredBroadcastReceiver);
     }
 
     @Override
