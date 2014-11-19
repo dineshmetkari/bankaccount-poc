@@ -1,7 +1,6 @@
 package com.poc.android.bankaccount.service;
 
 import android.app.Notification;
-import android.content.Context;
 import android.content.Intent;
 import android.graphics.Bitmap;
 import android.os.Bundle;

@@ -191,13 +191,14 @@ public class MainActivity extends FragmentActivity implements DataApi.DataListen
                 .addConnectionCallbacks(this)
                 .addOnConnectionFailedListener(this)
                 .build();
+
+        if (! resolvingError) {
+            googleApiClient.connect();
+        }
     }
     @Override
     protected void onStart() {
         super.onStart();
-        if (! resolvingError) {
-            googleApiClient.connect();
-        }
     }
 
     @Override
@@ -227,18 +228,20 @@ public class MainActivity extends FragmentActivity implements DataApi.DataListen
     @Override
     protected void onStop() {
         Log.d(TAG, "onStop()");
-        if (! resolvingError) {
-            Wearable.DataApi.removeListener(googleApiClient, this);
-            Wearable.MessageApi.removeListener(googleApiClient, this);
-            Wearable.NodeApi.removeListener(googleApiClient, this);
-            googleApiClient.disconnect();
-        }
         super.onStop();
     }
 
     @Override
     protected void onDestroy() {
         super.onDestroy();
+
+        if (! resolvingError) {
+            Wearable.DataApi.removeListener(googleApiClient, this);
+            Wearable.MessageApi.removeListener(googleApiClient, this);
+            Wearable.NodeApi.removeListener(googleApiClient, this);
+            googleApiClient.disconnect();
+        }
+
         AccountManager accountManager = AccountManager.get(this);
         accountManager.removeOnAccountsUpdatedListener(onAccountsUpdateListener);
         getContentResolver().unregisterContentObserver(accountContentObserver);
