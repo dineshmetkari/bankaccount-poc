@@ -41,12 +41,12 @@ import java.io.BufferedReader;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 
+import static com.poc.android.bankaccount.authentication.Authenticator.ACCESS_AUTH_TOKEN_TYPE;
 import static com.poc.android.bankaccount.authentication.Authenticator.ACCOUNT_TYPE;
 import static com.poc.android.bankaccount.authentication.Authenticator.REFRESH_AUTH_TOKEN_TYPE;
 
 /**
  * A login screen that offers login via username/password.
-
  */
 public class AuthenticateActivity extends AccountAuthenticatorActivity {
 
@@ -237,7 +237,7 @@ public class AuthenticateActivity extends AccountAuthenticatorActivity {
                     .append("grant_type=password")
                     .append('&')
                     .append("username=")
-                    .append(username)
+                    .append(username.trim())
                     .append('&')
                     .append("password=")
                     .append(password);
@@ -307,7 +307,7 @@ public class AuthenticateActivity extends AccountAuthenticatorActivity {
                     accountManager.addAccountExplicitly(account, null, null); // never save password
                 }
 
-//                accountManager.setAuthToken(account, ACCESS_AUTH_TOKEN_TYPE, loginResponse.getAccessToken());
+                accountManager.setAuthToken(account, ACCESS_AUTH_TOKEN_TYPE, loginResponse.getAccessToken());
                 accountManager.setAuthToken(account, REFRESH_AUTH_TOKEN_TYPE, loginResponse.getRefreshToken());
 
                 Intent intent = new Intent();
@@ -320,6 +320,7 @@ public class AuthenticateActivity extends AccountAuthenticatorActivity {
                 finish();
             } else {
                 mPasswordView.setError(getString(R.string.error_incorrect_password));
+                mPasswordView.setText("");
                 mPasswordView.requestFocus();
             }
         }

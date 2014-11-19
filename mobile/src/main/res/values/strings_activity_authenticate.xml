@@ -9,7 +9,7 @@
 
     <string name="error_invalid_username">This username is invalid</string>
     <string name="error_invalid_password">This password is too short</string>
-    <string name="error_incorrect_password">This password is incorrect</string>
+    <string name="error_incorrect_password">Login Failed</string>
     <string name="error_field_required">This field is required</string>
 
     <string name="login_url">http://199.83.221.130:9090/oauth2-provider/oauth/token</string>
